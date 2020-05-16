@@ -18,4 +18,6 @@ def Schedule(request):
     """Get the schedule for this calendar. Supports GET."""
     pass
 
-def 
+def Index(request):
+    """The index.html page that everyone expects. Supports GET."""
+    return render(request, "CalendarApp/index.html")
