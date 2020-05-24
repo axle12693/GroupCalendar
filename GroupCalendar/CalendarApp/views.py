@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from django.http import HttpResponse
+from .forms import UserRegisterForm
 
 
 # Each function will handle, where appropriate, more than one HTTP method
@@ -20,4 +21,10 @@ def Schedule(request):
 
 def Index(request):
     """The index.html page that everyone expects. Supports GET."""
-    return render(request, "CalendarApp/index.html")
+    CreateUserForm = UserRegisterForm()
+    return render(request, "CalendarApp/index.html", {'CreateUserForm': CreateUserForm})
+
+def Register(request):
+    """Enables user to register an account. Supports POST."""
+    # if request.method == 'POST':
+    #     form =
