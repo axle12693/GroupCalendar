@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
 
     <!-- JS, Popper.js, and jQuery -->
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
 
@@ -59,7 +59,12 @@
                 <div class="nav-item">Item</div>
                 <div class="nav-item">Item</div>
                 <div class="nav-item">
-                    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#bd-example-modal-lg">Register</button>
+                    {% if user.is_authenticated %}
+                    <p>Welcome, {{ user.username }}!</p>
+                    <a href="{% url 'logout' %}"> Log out</a>
+                    {% else %}
+                    <button type="button" id="register-modal-open-button" class="btn btn-primary">Register</button>
+                    {% endif%}
                 </div>
             </nav>
         </div>
@@ -72,31 +77,104 @@
     </div>
 
     <div class="modal fade" id="bd-example-modal-lg" tabindex="-1" role="dialog" aria-labelledby="myLargeModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <form class="modal-content" action="register" method="POST">
-                {% csrf_token %}
-                <div class="modal-header">
-                    <h5 class="modal-title" id="myLargeModalLabel">Join us today!</h5>
 
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-4">
-                        <small class="text-muted">
-                            Already have an account? <a class="ml-2" href="#">Sign In</a>
-                        </small>
-                    </div>
-                    <fieldset class="form-group" id="registerFormContainer">
-                        {{ CreateUserForm|crispy }}
-                    </fieldset>
-                </div>
-                <div class="modal-footer form-group">
-                    <button type="submit" class="btn btn-primary" id="registerButton">Register</button>
-                </div>
-            </form>
-        </div>
     </div>
+    <script>
+        $("#register-modal-open-button").click(function() {
+            jQuery.get("{% url 'register' %}", function(data) {
+                $("#bd-example-modal-lg").html(data);
+                $("#bd-example-modal-lg").modal("show");
+                $("#registerButton").click(registerButtonHandler);
+                $("#goToSignInLink").click(goToSignInLinkHandler);
+            });
+        });
+
+        function signInButtonHandler() {
+            geturl = $.ajax({
+                method: 'post',
+                processData: false,
+                contentType: false,
+                cache: false,
+                data: new FormData($("#signInForm").get(0)),
+                enctype: 'multipart/form-data',
+                url: '{% url 'login' %}',
+                statusCode:{
+                    200: function(response2, txtStatus, request) {
+                        $("#bd-example-modal-lg").html(response2);
+                        $("#signInButton").click(signInButtonHandler);
+                        $("#goToSignInLink").click(goToSignInLinkHandler);
+                    },
+                    302: function(response2) {
+                        window.location.replace(window.location.href)
+                    }
+                }
+            });
+        }
+
+        function goToSignInLinkHandler(event) {
+            event.preventDefault();
+            $.ajax({
+                method: 'get',
+                processData: false,
+                contentType: false,
+                cache: false,
+                data: {},
+                url: '{% url 'login' %}',
+                statusCode:{
+                    200: function(response) {
+                        $("#bd-example-modal-lg").html(response);
+                        $("#signInButton").click(signInButtonHandler);
+                        $("#goToRegisterLink").click(goToRegisterLinkHandler);
+                    },
+                    302: function(response) {
+                        window.location.replace(window.location.href)
+                    }
+                }
+            });
+        }
+
+        function goToRegisterLinkHandler(event) {
+            event.preventDefault();
+            $.ajax({
+                method: 'get',
+                processData: false,
+                contentType: false,
+                cache: false,
+                data: {},
+                url: '{% url 'register' %}',
+                statusCode:{
+                    200: function(response) {
+                        $("#bd-example-modal-lg").html(response);
+                        $("#registerButton").click(registerButtonHandler);
+                        $("#goToSignInLink").click(goToSignInLinkHandler);
+                    },
+                    302: function(response) {
+                        window.location.replace(window.location.href)
+                    }
+                }
+            });
+        }
+
+        function registerButtonHandler() {
+            $.ajax({
+                method: 'post',
+                processData: false,
+                contentType: false,
+                cache: false,
+                data: new FormData($("#registerForm").get(0)),
+                enctype: 'multipart/form-data',
+                url: '{% url 'register' %}',
+                statusCode:{
+                    200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").html(response);
+                        $("#registerButton").click(registerButtonHandler);
+                    },
+                    302: function(response, txtStatus, request) {
+                        window.location.replace(window.location.href)
+                    }
+                }
+            });
+        }
+    </script>
 </body>
 </html>

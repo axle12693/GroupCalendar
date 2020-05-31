@@ -25,7 +25,7 @@ SECRET_KEY = 'i^1z3)6hbyc97dam8b6x2mmt7*-u2n)_8$n#=&k40733=db@sm'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -125,3 +125,5 @@ STATICFILES_DIRS = (
 
 STATIC_URL = '/static/'
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
+LOGIN_REDIRECT_URL = "index"
+CALENDAR_ITEM_MAX_TEXT_LENGTH = 160
