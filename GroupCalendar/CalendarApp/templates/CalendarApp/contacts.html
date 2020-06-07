@@ -1,0 +1,36 @@
+{% load crispy_forms_tags %}
+<div class="modal-dialog modal-lg">
+    <form class="modal-content" id="addContactForm">
+        {% csrf_token %}
+        <div class="modal-header">
+            <h5 class="modal-title" id="myLargeModalLabel">Contacts</h5>
+
+            <button type="button" class="close" aria-label="Close" onclick="$('#bd-example-modal-lg').modal('hide')">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        <div class="modal-body">
+            <table><!--Very temporary-->
+                <tr>
+                    <th>Existing Contacts</th>
+                    <th></th>
+                </tr>
+                {% for contact in contacts %}
+                <tr>
+                    <td>{{contact.username}}</td>
+                    <td>
+                        <button onclick="deleteContact({{contact.pk}})">Delete</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+            <fieldset class="form-group" id="addContactFormContainer">
+                {{ form|crispy }}
+                <button type="button" class="btn btn-primary" id="addContactButton">Add Contact</button>
+            </fieldset>
+        </div>
+        <div class="modal-footer form-group">
+
+        </div>
+    </form>
+</div>

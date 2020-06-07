@@ -18,5 +18,12 @@ urlpatterns = [
     path('register/', CalAppViews.Register, name="register"),
     path('login/', Fix302(auth_views.LoginView.as_view(template_name="CalendarApp/login.html")), name="login"),
     path('logout/', Fix302(auth_views.LogoutView.as_view(template_name="CalendarApp/logout.html")), name="logout"),
-    path('calendaritem/', CalAppViews.CalendarItem, name="calendaritem")
+    path('addevent/', CalAppViews.AddEvent, name="addevent"),
+    path('addtask/', CalAppViews.AddTask, name="addtask"),
+    path('event/', CalAppViews.Event, name="event"),
+    path('task/', CalAppViews.Task, name="task"),
+    path('editevent/', CalAppViews.EditEvent, name="editevent"),
+    path('contacts/', CalAppViews.Contacts, name="contacts"),
+    path('deletecontact/', CalAppViews.DeleteContact, name="deletecontact")
+
 ]

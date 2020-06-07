@@ -28,3 +28,7 @@ class User_Task(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     importance = models.IntegerField()
     status = models.CharField(max_length=20)
+
+class Contact(models.Model):
+    user1 = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    user2 = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")

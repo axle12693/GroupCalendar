@@ -3,13 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <title>Group Calendar</title>
-    <!-- CSS only -->
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
 
-    <!-- JS, Popper.js, and jQuery -->
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.26.0/moment.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.7/js/tether.min.js"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/tempusdominus-bootstrap-4/5.0.0-alpha14/js/tempusdominus-bootstrap-4.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tempusdominus-bootstrap-4/5.0.0-alpha14/css/tempusdominus-bootstrap-4.min.css" />
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.css">
+
 
     {% load static %}
     {% load crispy_forms_tags %}
@@ -24,29 +28,38 @@
     <script src="{% static 'FullCalendar/packages/list/main.js' %}"></script>
     <script>
 
-      document.addEventListener('DOMContentLoaded', function() {
-        var calendarEl = document.getElementById('calendar');
+        document.addEventListener('DOMContentLoaded', function() {
+            var calendarEl = document.getElementById('calendar');
 
-        var calendar = new FullCalendar.Calendar(calendarEl, {
-          plugins: [ 'interaction', 'dayGrid', 'timeGrid', 'list' ],
-          header: {
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth'
-          },
-          defaultDate: '{% now 'Y\-m\-d' %}',
-          navLinks: true, // can click day/week names to navigate views
-          businessHours: false, // display business hours
-          editable: false,
-          events: []
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                plugins: [ 'interaction', 'dayGrid', 'timeGrid', 'list' ],
+                header: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth'
+                },
+                defaultDate: '{% now 'Y\-m\-d' %}',
+                navLinks: true, // can click day/week names to navigate views
+                businessHours: false, // display business hours
+                editable: false,
+                events: [
+                    {% for event in events %}
+                        {
+                            title: "{{event.event_text}}",
+                            start: "{{event.begin_datetime | date:"Y\-m\-d\TH\:i\:s"}}",
+                            end: "{{event.end_datetime | date:"Y\-m\-d\TH\:i\:s"}}",
+                            url: "javascript:goToEditItem({{event.pk}}, 'e');"
+                        },
+                    {% endfor %}
+                ]
+            });
+
+            calendar.render();
         });
 
-        calendar.render();
-      });
-
-      $("#registerButton").click(function(event) {
-        event.preventDefault()
-      });
+        $("#registerButton").click(function(event) {
+            event.preventDefault()
+        });
 
     </script>
 </head>
@@ -72,6 +85,11 @@
             <h1>My Calendar App</h1>
         </div>
     </div>
+    {% if user.is_authenticated %}
+    <button type="button" id="add-event-modal-open-button" class="btn btn-primary">Add Event</button>
+    <button type="button" id="add-task-modal-open-button" class="btn btn-primary">Add Task</button>
+    <button type="button" id="contacts-modal-open-button" class="btn btn-primary">Contacts</button>
+    {% endif %}
     <div class="container">
         <div ID="calendar"></div>
     </div>
@@ -80,6 +98,108 @@
 
     </div>
     <script>
+
+        $("#contacts-modal-open-button").click(function() {
+            jQuery.get("{% url 'contacts' %}", function(data) {
+                $("#bd-example-modal-lg").html(data);
+                $("#bd-example-modal-lg").modal("show");
+                $("#addContactButton").click(addContactButtonHandler);
+            });
+        });
+
+        function addContactButtonHandler() {
+            $.ajax({
+                method: 'post',
+                processData: false,
+                contentType: false,
+                cache: false,
+                data: new FormData($("#addContactForm").get(0)),
+                enctype: 'multipart/form-data',
+                url: '{% url 'contacts' %}',
+                statusCode:{
+                    200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").html(response);
+                        $("#addContactButton").click(addContactButtonHandler);
+                    }
+                }
+            });
+        }
+
+        function deleteContact(pk) {
+        $("#id_pk").val(pk)
+            $.ajax({
+                method: 'post',
+                processData: false,
+                contentType: false,
+                cache: false,
+                data: new FormData($("#addContactForm").get(0)),
+                enctype: 'multipart/form-data',
+                url: '{% url 'deletecontact' %}',
+                statusCode:{
+                    200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").html(response);
+                        $("#addContactButton").click(addContactButtonHandler);
+                    }
+                }
+            });
+        }
+
+        function goToEditItem(itemPK, type) {
+            jQuery.get("{% url 'editevent' %}", {pk:itemPK, type: type}, function(data) {
+                $("#bd-example-modal-lg").html(data);
+                $("#bd-example-modal-lg").modal("show");
+                $("#editEventButton").click(editEventButtonHandler);
+                $("#deleteEventButton").click(deleteEventButtonHandler);
+            });
+        }
+
+        function editEventButtonHandler()
+        {
+            $.ajax({
+                method: 'post',
+                processData: false,
+                contentType: false,
+                cache: false,
+                data: new FormData($("#editEventForm").get(0)),
+                enctype: 'multipart/form-data',
+                url: '{% url 'event' %}',
+                statusCode:{
+                    200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").html(response);
+                        $("#editEventButton").click(editEventButtonHandler);
+                        $("#deleteEventButton").click(deleteEventButtonHandler);
+                    },
+                    302: function(response, txtStatus, request) {
+                        window.location.replace(window.location.href)
+                    }
+                }
+            });
+        }
+
+        function deleteEventButtonHandler()
+        {
+            $("#reqtype").val("delete");
+            $.ajax({
+                method: 'post',
+                processData: false,
+                contentType: false,
+                cache: false,
+                data: new FormData($("#editEventForm").get(0)),
+                enctype: 'multipart/form-data',
+                url: '{% url 'event' %}',
+                statusCode:{
+                    200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").html(response);
+                        $("#editEventButton").click(editEventButtonHandler);
+                        $("#deleteEventButton").click(deleteEventButtonHandler);
+                    },
+                    302: function(response, txtStatus, request) {
+                        window.location.replace(window.location.href)
+                    }
+                }
+            });
+        }
+
         $("#register-modal-open-button").click(function() {
             jQuery.get("{% url 'register' %}", function(data) {
                 $("#bd-example-modal-lg").html(data);
@@ -88,6 +208,66 @@
                 $("#goToSignInLink").click(goToSignInLinkHandler);
             });
         });
+
+        $("#add-event-modal-open-button").click(function() {
+            jQuery.get("{% url 'addevent' %}", function(data) {
+                $("#bd-example-modal-lg").html(data);
+                $("#bd-example-modal-lg").modal("show");
+                $("#addEventButton").click(addEventButtonHandler);
+            });
+        });
+
+        $("#add-task-modal-open-button").click(function() {
+            jQuery.get("{% url 'addtask' %}", function(data) {
+                $("#bd-example-modal-lg").html(data);
+                $("#bd-example-modal-lg").modal("show");
+                $("#addTaskButton").click(addTaskButtonHandler);
+            });
+        });
+
+        function addEventButtonHandler()
+        {
+            $.ajax({
+                method: 'post',
+                processData: false,
+                contentType: false,
+                cache: false,
+                data: new FormData($("#addEventForm").get(0)),
+                enctype: 'multipart/form-data',
+                url: '{% url 'event' %}',
+                statusCode:{
+                    200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").html(response);
+                        $("#addEventButton").click(addEventButtonHandler);
+                    },
+                    302: function(response, txtStatus, request) {
+                        window.location.replace(window.location.href)
+                    }
+                }
+            });
+        }
+
+        function addTaskButtonHandler()
+        {
+            $.ajax({
+                method: 'post',
+                processData: false,
+                contentType: false,
+                cache: false,
+                data: new FormData($("#addTaskForm").get(0)),
+                enctype: 'multipart/form-data',
+                url: '{% url 'task' %}',
+                statusCode:{
+                    200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").html(response);
+                        $("#addTaskButton").click(addTaskButtonHandler);
+                    },
+                    302: function(response, txtStatus, request) {
+                        window.location.replace(window.location.href)
+                    }
+                }
+            });
+        }
 
         function signInButtonHandler() {
             geturl = $.ajax({
