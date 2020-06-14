@@ -17,7 +17,9 @@
         </div>
         <div class="modal-footer form-group">
             <button type="button" class="btn btn-primary" id="editEventButton">Edit Event</button>
+            {% if not noDelete %}
             <button type="button" class="btn btn-danger" id="deleteEventButton">Delete Event</button>
+            {% endif %}
         </div>
     </form>
 </div>

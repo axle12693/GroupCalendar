@@ -15,10 +15,44 @@
                     <th>Existing Contacts</th>
                     <th></th>
                 </tr>
+                {% for i in invited2 %}
+                <tr>
+                    <td>{{i.username}}</td>
+                    <td>
+                        <button onclick="acceptContact({{i.pk}})">Accept</button>
+                        <button onclick="deleteContact({{i.pk}})">Delete</button>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% for i in invited1 %}
+                <tr>
+                    <td>{{i.username}}</td>
+                    <td>
+                        <div>Invite sent!</div>
+                        <button onclick="deleteContact({{i.pk}})">Delete</button>
+                    </td>
+                </tr>
+                {% endfor %}
                 {% for contact in contacts %}
                 <tr>
                     <td>{{contact.username}}</td>
                     <td>
+                        {% if contact in shared_with_me %}
+                            {% for v in viewed %}
+                                {% if v.0 == contact.pk %}
+                                    {% if v.1 == "viewed" %}
+                                        <button onclick="viewCalendarToggle({{ contact.pk }})">Don't view this person's calendar</button>
+                                    {% else %}
+                                        <button onclick="viewCalendarToggle({{ contact.pk }})">View this person's calendar</button>
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                        {% if contact in shared_with_them %}
+                            <button onclick="shareCalendarToggle({{ contact.pk }})">Un-share Whole Calendar</button>
+                        {% else %}
+                            <button onclick="shareCalendarToggle({{ contact.pk }})">Share Whole Calendar</button>
+                        {% endif %}
                         <button onclick="deleteContact({{contact.pk}})">Delete</button>
                     </td>
                 </tr>

@@ -4,6 +4,7 @@ from . import views as CalAppViews
 from django.contrib.auth import views as auth_views
 from django.http import HttpResponse
 
+
 def Fix302(callback):
     def view(args):
         response = view.cb(args)
@@ -12,6 +13,7 @@ def Fix302(callback):
         return response
     view.cb = callback
     return view
+
 
 urlpatterns = [
     path('', CalAppViews.Index, name="index"),
@@ -24,6 +26,8 @@ urlpatterns = [
     path('task/', CalAppViews.Task, name="task"),
     path('editevent/', CalAppViews.EditEvent, name="editevent"),
     path('contacts/', CalAppViews.Contacts, name="contacts"),
-    path('deletecontact/', CalAppViews.DeleteContact, name="deletecontact")
-
+    path('deletecontact/', CalAppViews.DeleteContact, name="deletecontact"),
+    path('acceptcontact/', CalAppViews.AcceptContact, name="acceptcontact"),
+    path('calsharetoggle/', CalAppViews.CalShareToggle, name='calsharetoggle'),
+    path('calviewtoggle/', CalAppViews.CalViewToggle, name='calviewtoggle')
 ]

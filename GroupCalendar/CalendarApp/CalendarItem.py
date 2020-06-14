@@ -1,10 +1,12 @@
 from . import models as CalAppModels
 from django.utils import timezone
 
+
 class CalendarItem:
     def __init__(self, info, user):
-        self.info = info #self.process_data(info)
+        self.info = info
         self.owner = user
+
 
 class Event(CalendarItem):
     def save(self, pk=None):
@@ -34,6 +36,7 @@ class Event(CalendarItem):
             for saved_share in saved_shares:
                 if saved_share.user not in self.info["shares"]:
                     saved_share.delete()
+
 
 class Task(CalendarItem):
     def save(self):

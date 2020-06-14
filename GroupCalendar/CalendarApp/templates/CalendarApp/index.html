@@ -43,12 +43,30 @@
                 businessHours: false, // display business hours
                 editable: false,
                 events: [
-                    {% for event in events %}
+                    {% for event in eventsOwned %}
                         {
                             title: "{{event.event_text}}",
                             start: "{{event.begin_datetime | date:"Y\-m\-d\TH\:i\:s"}}",
                             end: "{{event.end_datetime | date:"Y\-m\-d\TH\:i\:s"}}",
                             url: "javascript:goToEditItem({{event.pk}}, 'e');"
+                        },
+                    {% endfor %}
+                    {% for event in eventsShared %}
+                        {
+                            title: "{{event.event_text}}",
+                            start: "{{event.begin_datetime | date:"Y\-m\-d\TH\:i\:s"}}",
+                            end: "{{event.end_datetime | date:"Y\-m\-d\TH\:i\:s"}}",
+                            url: "javascript:goToEditItem({{event.pk}}, 'e');",
+                            color: '#257e4a'
+                        },
+                    {% endfor %}
+                    {% for event in eventsInViewedCalendars %}
+                        {
+                            title: "{{event.event_text}}",
+                            start: "{{event.begin_datetime | date:"Y\-m\-d\TH\:i\:s"}}",
+                            end: "{{event.end_datetime | date:"Y\-m\-d\TH\:i\:s"}}",
+                            url: "javascript:goToEditItem({{event.pk}}, 'e');",
+                            color: '#ff0000'
                         },
                     {% endfor %}
                 ]
@@ -99,6 +117,62 @@
     </div>
     <script>
 
+        function viewCalendarToggle(pk) {
+            $("#id_pk").val(pk)
+            $.ajax({
+                method: 'post',
+                processData: false,
+                contentType: false,
+                cache: false,
+                data: new FormData($("#addContactForm").get(0)),
+                enctype: 'multipart/form-data',
+                url: '{% url 'calviewtoggle' %}',
+                statusCode:{
+                    200: function(response, txtStatus, request) {
+                        window.location.replace(window.location.href)
+                    }
+                }
+            });
+        }
+
+        function shareCalendarToggle(pk) {
+            $("#id_pk").val(pk)
+            $.ajax({
+                method: 'post',
+                processData: false,
+                contentType: false,
+                cache: false,
+                data: new FormData($("#addContactForm").get(0)),
+                enctype: 'multipart/form-data',
+                url: '{% url 'calsharetoggle' %}',
+                statusCode:{
+                    200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").html(response);
+                        $("#addContactButton").click(addContactButtonHandler);
+                    }
+                }
+            });
+        }
+
+        function acceptContact(pk) {
+            $("#id_pk").val(pk)
+            $.ajax({
+                method: 'post',
+                processData: false,
+                contentType: false,
+                cache: false,
+                data: new FormData($("#addContactForm").get(0)),
+                enctype: 'multipart/form-data',
+                url: '{% url 'acceptcontact' %}',
+                statusCode:{
+                    200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").html(response);
+                        $("#addContactButton").click(addContactButtonHandler);
+                    }
+                }
+            });
+        }
+
         $("#contacts-modal-open-button").click(function() {
             jQuery.get("{% url 'contacts' %}", function(data) {
                 $("#bd-example-modal-lg").html(data);
@@ -126,7 +200,7 @@
         }
 
         function deleteContact(pk) {
-        $("#id_pk").val(pk)
+            $("#id_pk").val(pk)
             $.ajax({
                 method: 'post',
                 processData: false,
