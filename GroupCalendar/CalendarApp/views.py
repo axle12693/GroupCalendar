@@ -6,7 +6,7 @@ from django.views.defaults import bad_request
 from .CalendarItem import Task as CalAppTask, Event as CalAppEvent
 from . import models as CalAppModels
 from copy import deepcopy
-
+#minor change for test
 
 # Each function will handle, where appropriate, more than one HTTP method
 
