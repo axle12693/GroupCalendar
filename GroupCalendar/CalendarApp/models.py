@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from django.contrib.auth.models import User
+import datetime
 
 
 class Event(models.Model):
@@ -9,6 +10,10 @@ class Event(models.Model):
     end_datetime = models.DateTimeField()
     owner = models.ForeignKey(User, on_delete=models.PROTECT)
     owner_importance = models.IntegerField()
+    repetition_type = models.CharField(max_length=20)  # numdays, weekly, none
+    repetition_number = models.IntegerField()  # 1 - inf. for numdays, 0 - 6 for Sun-Sat
+    from_date = models.DateField(default=datetime.date.today)
+    until_date = models.DateField(default=datetime.date.today)
 
 
 class User_Event(models.Model):
@@ -24,6 +29,11 @@ class Task(models.Model):
     available_date = models.DateTimeField()
     owner = models.ForeignKey(User, on_delete=models.PROTECT)
     owner_importance = models.IntegerField()
+    repetition_type = models.CharField(max_length=20)  # numdays, weekly, none
+    repetition_number = models.IntegerField()  # 1 - inf. for numdays, 0 - 6 for Sun-Sat
+    from_date = models.DateField(default=datetime.date.today)
+    until_date = models.DateField(default=datetime.date.today)
+    expected_minutes = models.IntegerField()
 
 
 class User_Task(models.Model):

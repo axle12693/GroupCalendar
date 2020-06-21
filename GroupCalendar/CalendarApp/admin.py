@@ -1,5 +1,5 @@
 from django.contrib import admin
-from CalendarApp.models import Event, Task, User_Task, User_Event, Contact
+from .models import Event, Task, User_Task, User_Event, Contact, Cal_Share
 
 
 class EventAdmin(admin.ModelAdmin):
@@ -22,8 +22,12 @@ class ContactAdmin(admin.ModelAdmin):
     pass
 
 
+class Cal_ShareAdmin(admin.ModelAdmin):
+    pass
+
 admin.site.register(Event, EventAdmin)
 admin.site.register(Task, TaskAdmin)
 admin.site.register(User_Event, User_EventAdmin)
 admin.site.register(User_Task, User_TaskAdmin)
 admin.site.register(Contact, ContactAdmin)
+admin.site.register(Cal_Share, Cal_ShareAdmin)

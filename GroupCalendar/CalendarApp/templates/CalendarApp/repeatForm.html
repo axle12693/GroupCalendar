@@ -1,0 +1,20 @@
+{% load crispy_forms_tags %}
+<div class="modal-dialog modal-lg">
+    <form class="modal-content" id="repetitionForm">
+        <div class="modal-header">
+            <h5 class="modal-title" id="repetitionModalLabel">When should it repeat?</h5>
+
+            <button type="button" class="close" aria-label="Close" onclick="$('#repetition-modal').modal('hide')">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        <div class="modal-body">
+            <fieldset class="form-group" id="repeatFormContainer">
+                {{ repeatForm|crispy }}
+            </fieldset>
+        </div>
+        <div class="modal-footer form-group">
+            <button type="button" class="btn btn-primary" id="repeatButton" onclick="repeatButtonHandler()">Done</button>
+        </div>
+    </form>
+</div>

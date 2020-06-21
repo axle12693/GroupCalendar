@@ -104,9 +104,9 @@
         </div>
     </div>
     {% if user.is_authenticated %}
-    <button type="button" id="add-event-modal-open-button" class="btn btn-primary">Add Event</button>
-    <button type="button" id="add-task-modal-open-button" class="btn btn-primary">Add Task</button>
-    <button type="button" id="contacts-modal-open-button" class="btn btn-primary">Contacts</button>
+        <button type="button" id="add-event-modal-open-button" class="btn btn-primary">Add Event</button>
+        <button type="button" id="add-task-modal-open-button" class="btn btn-primary">Add Task</button>
+        <button type="button" id="contacts-modal-open-button" class="btn btn-primary">Contacts</button>
     {% endif %}
     <div class="container">
         <div ID="calendar"></div>
@@ -115,7 +115,88 @@
     <div class="modal fade" id="bd-example-modal-lg" tabindex="-1" role="dialog" aria-labelledby="myLargeModalLabel" aria-hidden="true">
 
     </div>
+
+    <div class="modal fade" id="repetition-modal" tabindex="-1" role="dialog" aria-labelledby="repetitionModalLabel" aria-hidden="true">
+    </div>
     <script>
+
+        function repeatButtonHandler() {
+            weekly = $("#id_repetition_type_2");
+            n_days = $("#id_repetition_type_3");
+            if (weekly.prop("checked")) {
+                total = 0
+                for (i = 1; i <= 7; i++) {
+                input = $("#id_days_" + i)
+                    total += input.prop("checked") * input.val()
+                }
+                $("#id_repetition_number").val(total)
+            }
+            else if (n_days.prop("checked")) {
+                $("#id_repetition_number").val($("#id_number_of_days").val())
+            }
+            $("#repetition-modal").modal("hide");
+            $("#bd-example-modal-lg").modal("show");
+            $("#repetition-modal").one('hidden.bs.modal', function() {
+                $("#bd-example-modal-lg").modal("show");
+                if($('.modal.show').length > 0)
+                {
+                    $('body').addClass('modal-open');
+                }
+                $("#repetition-modal").one('hidden.bs.modal', function() {});
+            });
+            $("#repetition-modal").modal("hide");
+        }
+
+        function parseWeeklyNum(num) {
+            n = 8;
+            ls = [];
+            while (n < num) {
+                n *= 2;
+            }
+            while (n >= 1) {
+                if (num % n != num) {
+                    ls.push(n);
+                    num = num % n;
+                }
+                n /= 2;
+            }
+            return ls;
+        }
+
+        function repeatInputClickHandler() {
+            none = $("#id_repetition_type_1");
+            weekly = $("#id_repetition_type_2");
+            n_days = $("#id_repetition_type_3");
+            if (!none.prop("checked")) {
+                jQuery.get("{% url 'getrepeatform' %}", function(data2) {
+                    $("#repetition-modal").html(data2);
+                    if (weekly.prop("checked")) {
+                        $("#div_id_days").toggle(true);
+                        daysExp = parseWeeklyNum($("#id_repetition_number").val())
+                        days = []
+                        daysExp.forEach(day => days.push(1 + Math.log(day)/Math.log(2)))
+                        days.forEach(day => $("#id_days_" + day).prop("checked", true))
+                        $("#div_id_number_of_days").toggle(false);
+                    }
+                    else if (n_days.prop("checked")) {
+                        $("#div_id_days").toggle(false);
+                        $("#id_number_of_days").val($("#id_repetition_number").val())
+                        $("#div_id_number_of_days").toggle(true);
+                    }
+                    $("#bd-example-modal-lg").one('hidden.bs.modal', function() {
+                        $("#repetition-modal").modal("show");
+                        if($('.modal.show').length > 0)
+                        {
+                            $('body').addClass('modal-open');
+                        }
+                        $("#bd-example-modal-lg").one('hidden.bs.modal', function() {});
+                    });
+                    $("#bd-example-modal-lg").modal("hide");
+
+                });
+
+            }
+        }
 
         function viewCalendarToggle(pk) {
             $("#id_pk").val(pk)
@@ -180,6 +261,8 @@
                 $("#addContactButton").click(addContactButtonHandler);
             });
         });
+
+
 
         function addContactButtonHandler() {
             $.ajax({
@@ -429,6 +512,8 @@
                 }
             });
         }
+
+
     </script>
 </body>
 </html>

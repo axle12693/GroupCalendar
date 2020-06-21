@@ -1,12 +1,13 @@
 from django.shortcuts import render
 from django.http import HttpResponse
-from .forms import UserRegisterForm, AddEventForm, AddTaskForm, EditEventForm, AddContactForm, EditSharedEventForm
+from .forms import UserRegisterForm, AddEventForm, AddTaskForm, EditEventForm, EditTaskForm, AddContactForm, EditSharedEventForm, EditSharedTaskForm, RepetitionForm
 from django.core.exceptions import PermissionDenied
 from django.views.defaults import bad_request
-from .CalendarItem import Task as CalAppTask, Event as CalAppEvent
+from .CalendarItem import Task as CalAppTask, Event as CalAppEvent, DisplayEvent
 from . import models as CalAppModels
 from copy import deepcopy
-#minor change for test
+from math import log2
+import datetime
 
 # Each function will handle, where appropriate, more than one HTTP method
 
@@ -65,26 +66,21 @@ def _unshare_all_between_contacts(user1, user2):
         pass
 
 
-def CalendarItemsInDateRange(request):
-    """Get a JSON list of calendar items within a date range. Omit range for all items. Supports GET."""
-    pass
-
-
 def Event(request):
     """Various operations on events - get info, update info, create new, delete. Supports GET, POST.
     Django does not support PUT or DELETE, at least easily, and so these are implemented with POST."""
     if request.user.is_authenticated:
         if request.method == "POST":
             if request.POST["req"] == "put":
-                # try:
-                form = AddEventForm(data=request.POST, user=request.user)
-                if form.is_valid():
-                    CalAppEvent(form.cleaned_data, request.user).save()
-                    return HttpResponse(status="302", content="/")
-                else:
-                    return render(request, "CalendarApp/AddEvent.html", {'form': form})
-                # except:
-                #     return bad_request(request, "Failed")
+                try:
+                    form = AddEventForm(data=request.POST, user=request.user)
+                    if form.is_valid():
+                        CalAppEvent(form.cleaned_data, request.user).save()
+                        return HttpResponse(status="302", content="/")
+                    else:
+                        return render(request, "CalendarApp/AddEvent.html", {'form': form})
+                except:
+                    return bad_request(request, "Failed")
             elif request.POST["req"] == "post":
                 try:
                     obj = CalAppModels.Event.objects.get(pk=request.POST["pk"])
@@ -98,7 +94,7 @@ def Event(request):
                                 share.save()
                                 return HttpResponse(status="302", content="/")
                             else:
-                                return render(request, "CalendarApp/AddEvent.html", {'form': form, "noDelete": 1})
+                                return render(request, "CalendarApp/EditEvent.html", {'form': form, "noDelete": 1})
                         raise PermissionDenied
                     form = EditEventForm(data=request.POST, user=request.user)
                     if form.is_valid():
@@ -106,7 +102,7 @@ def Event(request):
                         CalAppEvent(form.cleaned_data, request.user).save(pk=pk)
                         return HttpResponse(status="302", content="/")
                     else:
-                        return render(request, "CalendarApp/AddEvent.html", {'form': form})
+                        return render(request, "CalendarApp/EditEvent.html", {'form': form})
                 except CalAppModels.Event.DoesNotExist:
                     return bad_request(request, "Failed")
             elif request.POST["req"] == "delete":
@@ -134,14 +130,45 @@ def Task(request):
                     form = AddTaskForm(data=request.POST, user=request.user)
                     if form.is_valid():
                         CalAppTask(form.cleaned_data, request.user).save()
-                        return HttpResponse(status=302, content="/")
+                        return HttpResponse(status="302", content="/")
                     else:
                         return render(request, "CalendarApp/AddTask.html", {'form': form})
                 except:
                     return bad_request(request, "Failed")
+            elif request.POST["req"] == "post":
+                try:
+                    obj = CalAppModels.Task.objects.get(pk=request.POST["pk"])
+                    if not obj.owner == request.user:
+                        shares = CalAppModels.User_Task.objects.filter(user=request.user).filter(event=obj)
+                        if shares:
+                            form = EditSharedTaskForm(data=request.POST)
+                            if form.is_valid():
+                                share = shares.first()
+                                share.importance = request.POST["importance"]
+                                share.save()
+                                return HttpResponse(status="302", content="/")
+                            else:
+                                return render(request, "CalendarApp/EditTask.html", {'form': form, "noDelete": 1})
+                        raise PermissionDenied
+                    form = EditTaskForm(data=request.POST, user=request.user)
+                    if form.is_valid():
+                        pk = request.POST["pk"]
+                        CalAppTask(form.cleaned_data, request.user).save(pk=pk)
+                        return HttpResponse(status="302", content="/")
+                    else:
+                        return render(request, "CalendarApp/EditTask.html", {'form': form})
+                except CalAppModels.Task.DoesNotExist:
+                    return bad_request(request, "Failed")
+            elif request.POST["req"] == "delete":
+                try:
+                    obj = CalAppModels.Task.objects.get(pk=request.POST["pk"])
+                    if not obj.owner == request.user:
+                        raise PermissionDenied
+                    obj.delete()
+                    return HttpResponse(status="302", content="/")
+                except:
+                    return bad_request(request, "Failed")
         elif request.method == "GET":
-            pass
-        elif request.method == "DELETE":
             pass
 
     raise PermissionDenied
@@ -160,6 +187,19 @@ def AddTask(request):
 def Schedule(request):
     """Get the schedule for this calendar. Supports GET."""
     pass
+
+
+def parseWeeklyDays(num):
+    n = 8
+    ls = []
+    while n < num:
+        n *= 2
+    while n >= 1:
+        if num % n != num:
+            ls.append(int(n))
+            num = num % n
+        n /= 2
+    return ls
 
 
 def Index(request):
@@ -182,12 +222,72 @@ def Index(request):
 
         events_in_calendars_shared_with_me = events_in_calendars_shared_with_me.difference(eventsShared)
     else:
-        eventsOwned = {}
-        eventsShared = {}
-        events_in_calendars_shared_with_me = {}
-    return render(request, "CalendarApp/index.html", {"eventsOwned": eventsOwned,
+        eventsOwned = set()
+        eventsShared =set()
+        events_in_calendars_shared_with_me = set()
+    eventsOwnedToDisplay = set()
+    eventsSharedToDisplay = set()
+    events_in_calendars_shared_with_me_to_display = set()
+
+    for event in eventsOwned:
+        if event.repetition_type == "weekly":
+            daysList = [int(log2(day)) + 1 for day in parseWeeklyDays(event.repetition_number)]
+
+        eventsOwnedToDisplay.add(DisplayEvent(event))
+        # Extend into the past
+        eventInPast = deepcopy(event)
+        if event.repetition_type == "weekly":
+            eventInPast.begin_datetime -= datetime.timedelta(1)
+            eventInPast.end_datetime -= datetime.timedelta(1)
+        elif event.repetition_type == "numdays":
+            eventInPast.begin_datetime -= datetime.timedelta(event.repetition_number)
+            eventInPast.end_datetime -= datetime.timedelta(event.repetition_number)
+        while eventInPast.begin_datetime.date() >= eventInPast.from_date:
+            if event.repetition_type == "weekly":
+                dow = eventInPast.begin_datetime.isoweekday() % 7 + 1
+                print(eventInPast.event_text)
+                print(eventInPast.begin_datetime.date())
+                print(daysList)
+                print(dow)
+                if dow in daysList:
+                    eventsOwnedToDisplay.add(DisplayEvent(eventInPast))
+                eventInPast.begin_datetime -= datetime.timedelta(1)
+                eventInPast.end_datetime -= datetime.timedelta(1)
+            elif event.repetition_type == "numdays":
+                eventsOwnedToDisplay.add(DisplayEvent(eventInPast))
+                eventInPast.begin_datetime -= datetime.timedelta(event.repetition_number)
+                eventInPast.end_datetime -= datetime.timedelta(event.repetition_number)
+
+        # Extend into the future
+        eventInFuture = deepcopy(event)
+        if event.repetition_type == "weekly":
+            eventInFuture.begin_datetime += datetime.timedelta(1)
+            eventInFuture.end_datetime += datetime.timedelta(1)
+        elif event.repetition_type == "numdays":
+            eventInFuture.begin_datetime += datetime.timedelta(event.repetition_number)
+            eventInFuture.end_datetime += datetime.timedelta(event.repetition_number)
+        while eventInFuture.begin_datetime.date() <= eventInFuture.until_date:
+            if event.repetition_type == "weekly":
+                dow = eventInFuture.begin_datetime.isoweekday() % 7 + 1
+                print(eventInFuture.event_text)
+                print(eventInFuture.begin_datetime.date())
+                print(daysList)
+                print(dow)
+                if dow in daysList:
+                    eventsOwnedToDisplay.add(DisplayEvent(eventInFuture))
+                eventInFuture.begin_datetime += datetime.timedelta(1)
+                eventInFuture.end_datetime += datetime.timedelta(1)
+            elif event.repetition_type == "numdays":
+                eventsOwnedToDisplay.add(DisplayEvent(eventInFuture))
+                eventInFuture.begin_datetime += datetime.timedelta(event.repetition_number)
+                eventInFuture.end_datetime += datetime.timedelta(event.repetition_number)
+
+    print(eventsOwnedToDisplay)
+    repeatForm = RepetitionForm()
+    return render(request, "CalendarApp/index.html", {"eventsOwned": eventsOwnedToDisplay,
                                                       "eventsShared": eventsShared,
-                                                      "eventsInViewedCalendars": events_in_calendars_shared_with_me})
+                                                      "eventsInViewedCalendars": events_in_calendars_shared_with_me,
+                                                      "repeatForm": repeatForm})
 
 
 def Register(request):
@@ -215,7 +315,11 @@ def EditEvent(request):
                                                           "end_datetime": obj.end_datetime,
                                                           "owner_importance": obj.owner_importance,
                                                           "shares": shared_users,
-                                                          "pk": request.GET["pk"]})
+                                                          "pk": request.GET["pk"],
+                                                          "repetition_type": obj.repetition_type,
+                                                          "repetition_number": obj.repetition_number,
+                                                          "from_date": obj.from_date,
+                                                          "until_date": obj.until_date})
             return render(request,
                            "CalendarApp/editevent.html",
                            {"form": form, "pk": request.GET["pk"], "type": request.GET["type"]})
@@ -224,6 +328,37 @@ def EditEvent(request):
             form = EditSharedEventForm(data={"importance":share.first().importance, "pk": request.GET["pk"]})
             return render(request,
                           "CalendarApp/editevent.html",
+                          {"form": form, "pk": request.GET["pk"], "type": request.GET["type"], "noDelete": True})
+    raise PermissionDenied
+
+def EditTask(request):
+    try:
+        obj = CalAppModels.Task.objects.get(pk=request.GET["pk"])
+        shares = CalAppModels.User_Task.objects.filter(task=obj)
+        shared_users = {share.user for share in shares}
+    except:
+        return bad_request(request, "Failed")
+    if request.user.is_authenticated:
+        if obj.owner == request.user:
+            form = EditTaskForm(user=request.user, data={"text": obj.event_text,
+                                                          "due_datetime": obj.due_datetime,
+                                                          "available_datetime": obj.available_datetime,
+                                                          "owner_importance": obj.owner_importance,
+                                                          "shares": shared_users,
+                                                          "pk": request.GET["pk"],
+                                                          "repetition_type": obj.repetition_type,
+                                                          "repetition_number": obj.repetition_number,
+                                                          "expected_minutes": obj.expected_minutes,
+                                                          "from_date": obj.from_date,
+                                                          "until_date": obj.until_date})
+            return render(request,
+                           "CalendarApp/edittask.html",
+                           {"form": form, "pk": request.GET["pk"], "type": request.GET["type"]})
+        share = CalAppModels.User_Task.objects.filter(user=request.user).filter(task=obj)
+        if share:
+            form = EditSharedTaskForm(data={"importance":share.first().importance, "pk": request.GET["pk"]})
+            return render(request,
+                          "CalendarApp/edittask.html",
                           {"form": form, "pk": request.GET["pk"], "type": request.GET["type"], "noDelete": True})
     raise PermissionDenied
 

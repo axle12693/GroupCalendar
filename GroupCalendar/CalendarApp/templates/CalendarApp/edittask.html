@@ -1,24 +1,24 @@
 {% load crispy_forms_tags %}
 <div class="modal-dialog modal-lg">
-    <form class="modal-content" id="editEventForm">
+    <form class="modal-content" id="editTaskForm">
         {% csrf_token %}
         <input id="reqtype" type="hidden" name="req" value="post">
         <div class="modal-header">
-            <h5 class="modal-title" id="myLargeModalLabel">Edit Event</h5>
+            <h5 class="modal-title" id="myLargeModalLabel">Edit Task</h5>
 
             <button type="button" class="close" aria-label="Close" onclick="$('#bd-example-modal-lg').modal('hide')">
                 <span aria-hidden="true">&times;</span>
             </button>
         </div>
         <div class="modal-body">
-            <fieldset class="form-group" id="editEventFormContainer">
+            <fieldset class="form-group" id="editTaskFormContainer">
                 {{ form|crispy }}
             </fieldset>
         </div>
         <div class="modal-footer form-group">
-            <button type="button" class="btn btn-primary" id="editEventButton">Edit Event</button>
+            <button type="button" class="btn btn-primary" id="editTaskButton">Edit Task</button>
             {% if not noDelete %}
-            <button type="button" class="btn btn-danger" id="deleteEventButton">Delete Event</button>
+            <button type="button" class="btn btn-danger" id="deleteTaskButton">Delete Task</button>
             {% endif %}
         </div>
     </form>
