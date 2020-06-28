@@ -40,7 +40,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'datetimepicker',
-    'tempus_dominus'
+    'tempus_dominus',
+    'background_task'
 ]
 
 MIDDLEWARE = [
@@ -129,3 +130,4 @@ STATIC_URL = '/static/'
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 LOGIN_REDIRECT_URL = "index"
 CALENDAR_ITEM_MAX_TEXT_LENGTH = 160
+I = 0

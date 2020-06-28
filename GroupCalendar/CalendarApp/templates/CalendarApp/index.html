@@ -307,6 +307,8 @@
                 $("#bd-example-modal-lg").modal("show");
                 $("#editEventButton").click(editEventButtonHandler);
                 $("#deleteEventButton").click(deleteEventButtonHandler);
+                $("#editMultiEventButton").click(editMultiEventButtonHandler);
+                $("#deleteMultiEventButton").click(deleteMultiEventButtonHandler);
             });
         }
 
@@ -325,6 +327,8 @@
                         $("#bd-example-modal-lg").html(response);
                         $("#editEventButton").click(editEventButtonHandler);
                         $("#deleteEventButton").click(deleteEventButtonHandler);
+                        $("#editMultiEventButton").click(editMultiEventButtonHandler);
+                        $("#deleteMultiEventButton").click(deleteMultiEventButtonHandler);
                     },
                     302: function(response, txtStatus, request) {
                         window.location.replace(window.location.href)
@@ -349,6 +353,61 @@
                         $("#bd-example-modal-lg").html(response);
                         $("#editEventButton").click(editEventButtonHandler);
                         $("#deleteEventButton").click(deleteEventButtonHandler);
+                        $("#editMultiEventButton").click(editMultiEventButtonHandler);
+                        $("#deleteMultiEventButton").click(deleteMultiEventButtonHandler);
+                    },
+                    302: function(response, txtStatus, request) {
+                        window.location.replace(window.location.href)
+                    }
+                }
+            });
+        }
+
+        function editMultiEventButtonHandler()
+        {
+            $("#id_all").val("true");
+            $.ajax({
+                method: 'post',
+                processData: false,
+                contentType: false,
+                cache: false,
+                data: new FormData($("#editEventForm").get(0)),
+                enctype: 'multipart/form-data',
+                url: '{% url 'event' %}',
+                statusCode:{
+                    200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").html(response);
+                        $("#editEventButton").click(editEventButtonHandler);
+                        $("#deleteEventButton").click(deleteEventButtonHandler);
+                        $("#editMultiEventButton").click(editMultiEventButtonHandler);
+                        $("#deleteMultiEventButton").click(deleteMultiEventButtonHandler);
+                    },
+                    302: function(response, txtStatus, request) {
+                        window.location.replace(window.location.href)
+                    }
+                }
+            });
+        }
+
+        function deleteMultiEventButtonHandler()
+        {
+            $("#id_all").val("true");
+            $("#reqtype").val("delete");
+            $.ajax({
+                method: 'post',
+                processData: false,
+                contentType: false,
+                cache: false,
+                data: new FormData($("#editEventForm").get(0)),
+                enctype: 'multipart/form-data',
+                url: '{% url 'event' %}',
+                statusCode:{
+                    200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").html(response);
+                        $("#editEventButton").click(editEventButtonHandler);
+                        $("#deleteEventButton").click(deleteEventButtonHandler);
+                        $("#editMultiEventButton").click(editMultiEventButtonHandler);
+                        $("#deleteMultiEventButton").click(deleteMultiEventButtonHandler);
                     },
                     302: function(response, txtStatus, request) {
                         window.location.replace(window.location.href)

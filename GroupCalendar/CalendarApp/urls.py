@@ -7,6 +7,8 @@ from .forms import RepetitionForm
 from django.shortcuts import render
 
 
+
+
 def Fix302(callback):
     def view(args):
         response = view.cb(args)
@@ -33,5 +35,6 @@ urlpatterns = [
     path('acceptcontact/', CalAppViews.AcceptContact, name="acceptcontact"),
     path('calsharetoggle/', CalAppViews.CalShareToggle, name='calsharetoggle'),
     path('calviewtoggle/', CalAppViews.CalViewToggle, name='calviewtoggle'),
-    path('getrepeatform/', lambda request: render(request, "CalendarApp/repeatForm.html", {"repeatForm": RepetitionForm()}), name='getrepeatform')
+    path('getrepeatform/', lambda request: render(request, "CalendarApp/repeatForm.html", {"repeatForm": RepetitionForm()}), name='getrepeatform'),
+    path('schedule/', CalAppViews.Schedule, name='schedule')
 ]

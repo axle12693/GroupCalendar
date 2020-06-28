@@ -80,6 +80,7 @@ class EditEventForm(forms.Form):
                                            initial=0)
     from_date = forms.DateField(widget=DatePicker(attrs={'autocomplete': 'off'}), label='Start repeating on:')
     until_date = forms.DateField(widget=DatePicker(attrs={'autocomplete': 'off'}), label='Stop repeating on:')
+    all = forms.CharField(widget=forms.HiddenInput, required=False)
 
 
 class EditSharedEventForm(forms.Form):
