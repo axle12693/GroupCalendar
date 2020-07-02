@@ -13,6 +13,12 @@ import asyncio
 import time
 from django.utils.timezone import make_aware
 
+class FailedToScheduleException(Exception):
+    pass
+
+class ScheduleTimedOutException(Exception):
+    pass
+
 # Each function will handle, where appropriate, more than one HTTP method
 
 _schedule_main_loop_is_running = False
@@ -99,6 +105,7 @@ def Event(request):
             form = AddEventForm(data=request.POST, user=request.user)
             if form.is_valid():
                 CalAppEvent(form.cleaned_data, request.user).save()
+                Schedule(request)
                 return HttpResponse(status="302", content="/")
             else:
                 return render(request, "CalendarApp/AddEvent.html", {'form': form})
@@ -118,6 +125,7 @@ def Event(request):
                         share = shares.first()
                         share.importance = request.POST["importance"]
                         share.save()
+                        Schedule(request)
                         return HttpResponse(status="302", content="/")
                     else:
                         return render(request, "CalendarApp/EditEvent.html", {'form': form, "noDelete": 1})
@@ -125,6 +133,7 @@ def Event(request):
             form = EditEventForm(data=request.POST, user=request.user)
             if form.is_valid():
                 CalAppEvent(form.cleaned_data, request.user).save(pk=obj.pk)
+                Schedule(request)
                 return HttpResponse(status="302", content="/")
             else:
                 return render(request, "CalendarApp/EditEvent.html", {'form': form})
@@ -140,6 +149,7 @@ def Event(request):
             if not obj.owner == request.user:
                 raise PermissionDenied
             obj.delete()
+            Schedule(request)
             return HttpResponse(status="302", content="/")
         except:
             return bad_request(request, "Failed")
@@ -157,55 +167,71 @@ def Event(request):
 
 
 def Task(request):
-    """Various operations on tasks - get info, update info, create new, delete. Supports GET, POST.
+    """Various operations on tasks - get info, update info, create new, delete. Supports POST.
     Django does not support PUT or DELETE, at least easily, and so these are implemented with POST."""
+
+    def addTask(request):
+        # try:
+        form = AddTaskForm(data=request.POST, user=request.user)
+        if form.is_valid():
+            CalAppTask(form.cleaned_data, request.user).save()
+            Schedule(request)
+            return HttpResponse(status="302", content="/")
+        else:
+            return render(request, "CalendarApp/AddTask.html", {'form': form})
+        # except:
+        #     return bad_request(request, "Failed")
+
+    def editTask(request):
+        # try:
+        obj = CalAppModels.Task.objects.get(pk=request.POST["pk"])
+        if request.POST["all"] == 'true':
+            obj = obj.parent
+        if not obj.owner == request.user:
+            shares = CalAppModels.User_Task.objects.filter(user=request.user).filter(task=obj)
+            if shares:
+                form = EditSharedTaskForm(data=request.POST)
+                if form.is_valid():
+                    share = shares.first()
+                    share.importance = request.POST["importance"]
+                    share.save()
+                    Schedule(request)
+                    return HttpResponse(status="302", content="/")
+                else:
+                    return render(request, "CalendarApp/EditTask.html", {'form': form, "noDelete": 1})
+            raise PermissionDenied
+        form = EditTaskForm(data=request.POST, user=request.user)
+        if form.is_valid():
+            CalAppTask(form.cleaned_data, request.user).save(pk=obj.pk)
+            Schedule(request)
+            return HttpResponse(status="302", content="/")
+        else:
+            return render(request, "CalendarApp/EditTask.html", {'form': form})
+        # except CalAppModels.Task.DoesNotExist:
+        #     return bad_request(request, "Failed")
+
+    def deleteTask(request):
+        # try:
+        obj = CalAppModels.Task.objects.get(pk=request.POST["pk"])
+        numSiblings = len(CalAppModels.Task.objects.filter(parent=obj.parent)) - 1
+        if request.POST["all"] == 'true' or numSiblings == 0:
+            obj = obj.parent
+        if not obj.owner == request.user:
+            raise PermissionDenied
+        obj.delete()
+        Schedule(request)
+        return HttpResponse(status="302", content="/")
+        # except:
+        #     return bad_request(request, "Failed")
+
     if request.user.is_authenticated:
         if request.method == "POST":
             if request.POST["req"] == "put":
-                try:
-                    form = AddTaskForm(data=request.POST, user=request.user)
-                    if form.is_valid():
-                        CalAppTask(form.cleaned_data, request.user).save()
-                        return HttpResponse(status="302", content="/")
-                    else:
-                        return render(request, "CalendarApp/AddTask.html", {'form': form})
-                except:
-                    return bad_request(request, "Failed")
+                return addTask(request)
             elif request.POST["req"] == "post":
-                try:
-                    obj = CalAppModels.Task.objects.get(pk=request.POST["pk"])
-                    if not obj.owner == request.user:
-                        shares = CalAppModels.User_Task.objects.filter(user=request.user).filter(event=obj)
-                        if shares:
-                            form = EditSharedTaskForm(data=request.POST)
-                            if form.is_valid():
-                                share = shares.first()
-                                share.importance = request.POST["importance"]
-                                share.save()
-                                return HttpResponse(status="302", content="/")
-                            else:
-                                return render(request, "CalendarApp/EditTask.html", {'form': form, "noDelete": 1})
-                        raise PermissionDenied
-                    form = EditTaskForm(data=request.POST, user=request.user)
-                    if form.is_valid():
-                        pk = request.POST["pk"]
-                        CalAppTask(form.cleaned_data, request.user).save(pk=pk)
-                        return HttpResponse(status="302", content="/")
-                    else:
-                        return render(request, "CalendarApp/EditTask.html", {'form': form})
-                except CalAppModels.Task.DoesNotExist:
-                    return bad_request(request, "Failed")
+                return editTask(request)
             elif request.POST["req"] == "delete":
-                try:
-                    obj = CalAppModels.Task.objects.get(pk=request.POST["pk"])
-                    if not obj.owner == request.user:
-                        raise PermissionDenied
-                    obj.delete()
-                    return HttpResponse(status="302", content="/")
-                except:
-                    return bad_request(request, "Failed")
-        elif request.method == "GET":
-            pass
+                return deleteTask(request)
 
     raise PermissionDenied
 
@@ -221,7 +247,8 @@ def AddTask(request):
 
 def _conflicting(calItem1, calItem2):
     return (calItem1.begin_datetime > calItem2.begin_datetime and calItem1.begin_datetime < calItem2.end_datetime)\
-            or (calItem2.begin_datetime > calItem1.begin_datetime and calItem2.begin_datetime < calItem1.end_datetime)
+            or (calItem2.begin_datetime > calItem1.begin_datetime and calItem2.begin_datetime < calItem1.end_datetime)\
+            or (calItem1.begin_datetime == calItem2.begin_datetime)
 
 def _get_priority(calItem, user):
     due_date = calItem.due_date if type(calItem) == CalAppModels.Task else calItem.begin_datetime
@@ -236,7 +263,7 @@ def _get_priority(calItem, user):
         except:
             importance = 0
 
-    return (importance + 0.01) ** 1.1 + ((make_aware(datetime.datetime.now()).toordinal() - due_date.toordinal()) + 0.01)
+    return (importance + 0.01) ** 1.1 + ((make_aware(datetime.datetime.now()).toordinal() - due_date.toordinal()) / 2 + 0.01)
 
 def _get_cal_item_stats(all_events, all_tasks, all_related_users):
     cal_item_stats = []
@@ -267,10 +294,15 @@ def _get_cal_item_stats(all_events, all_tasks, all_related_users):
         cal_item_stats.append((task, averagePriority, maxPriority))
     return cal_item_stats
 
-def _create_schedule(scheduled, unscheduled, tick, second_limit):
-    print("It has taken", time.time() - tick, "seconds to shcedule", len(scheduled), "items")
+needToReschedule = []
+measure = 0
+
+def _create_schedule(scheduled, unscheduled, tick, second_limit, possibilitiesBelowExhausted):
+    global needToReschedule, measure
+    # print("It has taken", time.time() - tick, "seconds to schedule", len(scheduled), "items")
+    iAmExhausted = False
     if time.time() - tick > second_limit:
-        raise Exception("Out of time!")
+        raise ScheduleTimedOutException("Timed out!")
     repeatEverything = True
     disallowed_datetimes = set()
     interval = 480  # minutes
@@ -278,63 +310,110 @@ def _create_schedule(scheduled, unscheduled, tick, second_limit):
         repeatEverything = False
         item_to_schedule = unscheduled[-1]
         if type(item_to_schedule[0]) == CalAppModels.Event:
+            # print("Now attempting to schedule: ", item_to_schedule[0].event_text)
+            # print("Event is at:", item_to_schedule[0].begin_datetime)
+            iAmExhausted = True
             givenUp = False
             for item in scheduled:
                 if _conflicting(item[0], item_to_schedule[0]):
-                    if type(item[0]) == CalAppModels.Task:
-                        raise Exception("Can't schedule event")
+                    if type(item[0]) == CalAppModels.Task and not possibilitiesBelowExhausted:
+                        needToReschedule.append(item)
+                        # print("Failed to schedule event because of conflict with a task. Raising exception to reschedule previous items.")
+                        raise FailedToScheduleException("Can't schedule event")
                     else:
+                        # print("Entirely failed to schedule item. Removing from possibility of scheduling.")
                         unscheduled.remove(item_to_schedule)
                         item_to_schedule[0].scheduled = False
-                        item_to_schedule[0].save()
                         givenUp = True
                         break
             if not givenUp:
+                # print("Successfully scheduled!")
                 scheduled.append(item_to_schedule)
                 unscheduled.remove(item_to_schedule)
         else:
+            # print("Now attempting to schedule: ", item_to_schedule[0].task_text)
+            # print("Task is available between:", item_to_schedule[0].available_date, "and", item_to_schedule[0].due_date)
             overdue = item_to_schedule[0].begin_datetime + datetime.timedelta(minutes=item_to_schedule[0].expected_minutes) > item_to_schedule[0].due_date \
-                      or datetime.datetime.now() + datetime.timedelta(minutes=item_to_schedule[0].expected_minutes) > item_to_schedule[0].due_date
-            if item_to_schedule[0].begin_datetime < item_to_schedule[0].available_date:
-                item_to_schedule[0].begin_datetime = item_to_schedule[0].available_date
-            if item_to_schedule[0].begin_datetime < datetime.datetime.now() + datetime.timedelta(minutes=15):
-                item_to_schedule[0].begin_datetime = datetime.datetime.now() + datetime.timedelta(minutes=15)
-
+                      or make_aware(datetime.datetime.now() + datetime.timedelta(minutes=item_to_schedule[0].expected_minutes)) > item_to_schedule[0].due_date
+            item_to_schedule[0].begin_datetime = item_to_schedule[0].available_date
+            item_to_schedule[0].end_datetime = item_to_schedule[0].begin_datetime + datetime.timedelta(
+                minutes=item_to_schedule[0].expected_minutes)
+            if item_to_schedule[0].begin_datetime < make_aware(datetime.datetime.now() + datetime.timedelta(minutes=15)):
+                item_to_schedule[0].begin_datetime = make_aware(datetime.datetime.now() + datetime.timedelta(minutes=15))
+                item_to_schedule[0].end_datetime = item_to_schedule[0].begin_datetime + datetime.timedelta(
+                    minutes=item_to_schedule[0].expected_minutes)
             success = False
-            while (not success) and (interval <= 15):
+            while (not success) and (interval >= max(15, item_to_schedule[0].expected_minutes // 2)):
                 conflict = False
                 for item in scheduled:
-                    if _conflicting(item[0], item_to_schedule[0]) or item_to_schedule[0].begin_datetime in disallowed_datetimes:
-                        item_to_schedule[0].begin_datetime += datetime.timedelta(minutes=interval)
+                    if _conflicting(item[0], item_to_schedule[0]):
+                        item_to_schedule[0].begin_datetime = item[0].end_datetime
+                        item_to_schedule[0].end_datetime = item_to_schedule[0].begin_datetime + datetime.timedelta(
+                            minutes=item_to_schedule[0].expected_minutes)
                         conflict = True
                         break
+                if item_to_schedule[0].begin_datetime in disallowed_datetimes:
+                    item_to_schedule[0].begin_datetime += datetime.timedelta(minutes=interval)
+                    item_to_schedule[0].end_datetime = item_to_schedule[0].begin_datetime + datetime.timedelta(
+                        minutes=item_to_schedule[0].expected_minutes)
+                    conflict = True
                 if not conflict:
+                    item_to_schedule[0].end_datetime = item_to_schedule[0].begin_datetime + datetime.timedelta(minutes=item_to_schedule[0].expected_minutes)
                     scheduled.append(item_to_schedule)
                     unscheduled.remove(item_to_schedule)
                     success = True
+                    # print("Successfully scheduled at:", item_to_schedule[0].begin_datetime)
                     break
                 if overdue:
                     if item_to_schedule[0].begin_datetime + datetime.timedelta(minutes=item_to_schedule[0].expected_minutes) \
-                            > datetime.datetime.now() + datetime.timedelta(days=1):
-                        item_to_schedule[0].begin_datetime = item_to_schedule[0].available_date
+                            > make_aware(datetime.datetime.now() + datetime.timedelta(days=1)):
+                        item_to_schedule[0].begin_datetime = max(make_aware(datetime.datetime.now()), item_to_schedule[0].available_date)
+                        item_to_schedule[0].end_datetime = item_to_schedule[0].begin_datetime + datetime.timedelta(
+                            minutes=item_to_schedule[0].expected_minutes)
                         interval /= 2
                 else:
                     if item_to_schedule[0].begin_datetime + datetime.timedelta(minutes=item_to_schedule[0].expected_minutes) > item_to_schedule[0].due_date:
                         item_to_schedule[0].begin_datetime = item_to_schedule[0].available_date
+                        item_to_schedule[0].end_datetime = item_to_schedule[0].begin_datetime + datetime.timedelta(
+                            minutes=item_to_schedule[0].expected_minutes)
                         interval /= 2
             if not success:
-                raise Exception("Can't schedule task")
+                if possibilitiesBelowExhausted:
+                    iAmExhausted = True
+                    print("I got exhausted, as well as everyone below me!")
+                    print("I am ", item_to_schedule[0].task_text, "due at", item_to_schedule[0].due_date)
+                else:
+                    # print("Failed to schedule!")
+                    raise FailedToScheduleException("Can't schedule task")
 
         try:
-            _create_schedule(scheduled, unscheduled, tick, second_limit)
-        except:
-            if type(item_to_schedule[0]) == CalAppModels.Task:
+            # print("I successfully put the current item in the schedule. Now attempting to add the next item.")
+            _create_schedule(scheduled, unscheduled, tick, second_limit, iAmExhausted)
+        except FailedToScheduleException as ex:
+            # print("I got an exception! someone above wants me to reschedule if I can.")
+            if needToReschedule and not (item_to_schedule in needToReschedule):
+                print("Skipped down")
+                unscheduled.append(item_to_schedule)
+                scheduled.remove(item_to_schedule)
+                if possibilitiesBelowExhausted:
+                    raise Exception("You shouldn't be seeing this!")
+                raise FailedToScheduleException("Pass it on, there's something specific to reschedule.")
+            if type(item_to_schedule[0]) == CalAppModels.Task and not iAmExhausted:
+                # print("I can reschedule, I will.")
                 unscheduled.append(item_to_schedule)
                 scheduled.remove(item_to_schedule)
                 disallowed_datetimes.add(item_to_schedule[0].begin_datetime)
                 repeatEverything = True
+            elif not possibilitiesBelowExhausted:
+                # print("Either I was an event, or I could not be rescheduled.")
+                if item_to_schedule in scheduled:
+                    unscheduled.append(item_to_schedule)
+                    scheduled.remove(item_to_schedule)
+                raise FailedToScheduleException("Pass it on!")
             else:
-                raise Exception("Pass it on!")
+                # print("You should never see this! You got an exception when rescheduling cannot happen!")
+                # print("The exception was:", ex)
+                exit(1)
 
 def _schedule_user_quick(user):
     tick = time.time()
@@ -378,26 +457,42 @@ def _schedule_user_quick(user):
         cal_item[0].save()
     #schedule events and tasks
     to_schedule = []
-    print("It took", time.time() - tick, "seconds to get to the point where scheduling can start")
     while len(cal_item_stats) > 0:
         if time.time() - tick > 30:
             break
         for cal_item in to_schedule:
             cal_item[0].scheduled = False
-        to_schedule = [cal_item_stats.pop(-1)] + to_schedule
+        next_item = cal_item_stats.pop(-1)
+        if type(next_item[0]) == CalAppModels.Event:
+            while next_item[0].begin_datetime < make_aware(datetime.datetime.now()):
+                next_item[0].scheduled = True
+                next_item[0].save()
+                next_item = cal_item_stats.pop(-1)
+        to_schedule = [next_item] + to_schedule
         unscheduled = copy.copy(to_schedule)
         scheduled = []
+        last_successful = []
         try:
             tick2 = time.time()
-            _create_schedule(scheduled, unscheduled, tick, 30)
-            if ((time.time() - tick2 > 0.1) and (time.time() - tick > 20)) or (time.time() - tick > 27):
+            _create_schedule(scheduled, unscheduled, tick, 30, True)
+            last_successful = (copy.copy(scheduled), copy.copy(unscheduled))
+            print("Successfully scheduled", len(scheduled), "items")
+            if (time.time() - tick2 > 0.01) or (time.time() - tick > 20) or len(cal_item_stats) == 0 or len(scheduled) % 10 == 0:
                 for item in unscheduled:
                     item[0].scheduled = False
                     item[0].save()
                 for item in scheduled:
                     item[0].scheduled = True
                     item[0].save()
-        except:
+        except Exception as e:
+            # if last_successful:
+            #     for item in last_successful[1]:
+            #         item[0].scheduled = False
+            #         item[0].save()
+            #     for item in last_successful[0]:
+            #         item[0].scheduled = True
+            #         item[0].save()
+            print(e)
             return
 
 
@@ -410,6 +505,7 @@ def Schedule(request):
         pass
     if request.user.is_authenticated:
         _schedule_user_quick(request.user)
+        print(measure)
         return HttpResponse("Scheduled")
     raise PermissionDenied
 
@@ -432,31 +528,49 @@ def parseWeeklyDays(num):
 def Index(request):
     """The index.html page that everyone expects. Supports GET."""
     if request.user.is_authenticated:
+        Schedule(request)
         eventsOwned = CalAppModels.Event.objects.filter(owner=request.user, exception=False, scheduled=True).exclude(parent__isnull=True)
-        shares = CalAppModels.User_Event.objects.filter(user=request.user)
-        eventsSharedSet = {share.event for share in shares}
+        tasksOwned = CalAppModels.Task.objects.filter(owner=request.user, exception=False, scheduled=True).exclude(parent__isnull=True)
+        event_shares = CalAppModels.User_Event.objects.filter(user=request.user)
+        task_shares = CalAppModels.User_Task.objects.filter(user=request.user)
+        eventsSharedSet = {share.event for share in event_shares}
+        tasksSharedSet = {share.task for share in task_shares}
         eventPKs = {event.pk for event in eventsSharedSet}
+        taskPKs = {task.pk for task in tasksSharedSet}
         eventsShared = CalAppModels.Event.objects.filter(pk__in=eventPKs, exception=False, scheduled=True).exclude(parent__isnull=True)
+        tasksShared = CalAppModels.Task.objects.filter(pk__in=eventPKs, exception=False, scheduled=True).exclude(parent__isnull=True)
         calendars_shared_with_me = CalAppModels.Cal_Share.objects.filter(sharee=request.user, status="viewed")
         users_sharing_calendars_with_me = {calendar.sharer for calendar in calendars_shared_with_me}
         events_in_calendars_shared_with_me = set()
+        tasks_in_calendars_shared_with_me = set()
         for user in users_sharing_calendars_with_me:
             events = CalAppModels.Event.objects.filter(owner=user, exception=False, scheduled=True).exclude(parent__isnull=True)
+            tasks = CalAppModels.Task.objects.filter(owner=user, exception=False, scheduled=True).exclude(parent__isnull=True)
             if events_in_calendars_shared_with_me:
                 events_in_calendars_shared_with_me = events_in_calendars_shared_with_me.union(events)
             else:
                 events_in_calendars_shared_with_me = copy.copy(events)
-
+            if tasks_in_calendars_shared_with_me:
+                tasks_in_calendars_shared_with_me = tasks_in_calendars_shared_with_me.union(tasks)
+            else:
+                tasks_in_calendars_shared_with_me = copy.copy(tasks)
         events_in_calendars_shared_with_me = events_in_calendars_shared_with_me.difference(eventsShared)
+        tasks_in_calendars_shared_with_me = tasks_in_calendars_shared_with_me.difference(tasksShared)
     else:
         eventsOwned = set()
-        eventsShared =set()
+        eventsShared = set()
         events_in_calendars_shared_with_me = set()
+        tasksOwned = set()
+        tasksShared = set()
+        tasks_in_calendars_shared_with_me = set()
 
     repeatForm = RepetitionForm()
     return render(request, "CalendarApp/index.html", {"eventsOwned": eventsOwned,
                                                       "eventsShared": eventsShared,
                                                       "eventsInViewedCalendars": events_in_calendars_shared_with_me,
+                                                      "tasksOwned": tasksOwned,
+                                                      "tasksShared": tasksShared,
+                                                      "tasksInViewedCalendars": tasks_in_calendars_shared_with_me,
                                                       "repeatForm": repeatForm})
 
 
@@ -510,13 +624,14 @@ def EditTask(request):
         obj = CalAppModels.Task.objects.get(pk=request.GET["pk"])
         shares = CalAppModels.User_Task.objects.filter(task=obj)
         shared_users = {share.user for share in shares}
+        numSiblings = len(CalAppModels.Task.objects.filter(parent=obj.parent)) - 1
     except:
         return bad_request(request, "Failed")
     if request.user.is_authenticated:
         if obj.owner == request.user:
-            form = EditTaskForm(user=request.user, data={"text": obj.event_text,
-                                                          "due_datetime": obj.due_datetime,
-                                                          "available_datetime": obj.available_datetime,
+            form = EditTaskForm(user=request.user, data={"text": obj.task_text,
+                                                          "due_datetime": obj.due_date,
+                                                          "available_datetime": obj.available_date,
                                                           "owner_importance": obj.owner_importance,
                                                           "shares": shared_users,
                                                           "pk": request.GET["pk"],
@@ -527,7 +642,10 @@ def EditTask(request):
                                                           "until_date": obj.until_date})
             return render(request,
                            "CalendarApp/edittask.html",
-                           {"form": form, "pk": request.GET["pk"], "type": request.GET["type"]})
+                           {"form": form,
+                            "pk": request.GET["pk"],
+                            "type": request.GET["type"],
+                            "hasSiblings": numSiblings > 0})
         share = CalAppModels.User_Task.objects.filter(user=request.user).filter(task=obj)
         if share:
             form = EditSharedTaskForm(data={"importance":share.first().importance, "pk": request.GET["pk"]})
@@ -580,6 +698,7 @@ def DeleteContact(request):
         _unshare_all_between_contacts(request.user, otherUser)
 
         # Populate new list of contacts
+        Schedule(request)
         return _render_contacts_form(request)
     else:
         raise PermissionDenied
@@ -592,6 +711,7 @@ def AcceptContact(request):
             contactObject = CalAppModels.Contact.objects.get(user1=other_user, user2=request.user)
             contactObject.state = "accepted"
             contactObject.save()
+            Schedule(request)
             return _render_contacts_form(request)
         except:
             return bad_request(request, "Failed")

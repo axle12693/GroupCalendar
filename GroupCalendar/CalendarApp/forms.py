@@ -101,6 +101,7 @@ class AddTaskForm(forms.Form):
     text = forms.CharField(max_length=256)
     due_datetime = forms.DateTimeField(widget=DateTimePicker(attrs={'autocomplete': 'off'}))
     available_datetime = forms.DateTimeField(widget=DateTimePicker(attrs={'autocomplete': 'off'}))
+    expected_minutes = forms.IntegerField()
     owner_importance = forms.IntegerField(max_value=10, min_value=1)
     shares = forms.ModelMultipleChoiceField(widget=forms.CheckboxSelectMultiple,
                                             queryset=User.objects.all(),
@@ -149,6 +150,7 @@ class EditTaskForm(forms.Form):
                                            initial=0)
     from_date = forms.DateField(widget=DatePicker(attrs={'autocomplete': 'off'}), label='Start repeating on:')
     until_date = forms.DateField(widget=DatePicker(attrs={'autocomplete': 'off'}), label='Stop repeating on:')
+    all = forms.CharField(widget=forms.HiddenInput, required=False)
 
 
 class EditSharedTaskForm(forms.Form):

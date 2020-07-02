@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.contrib.auth.models import User
 import datetime
+from django.utils.timezone import make_aware
 
 
 class Event(models.Model):
@@ -35,9 +36,15 @@ class Task(models.Model):
     owner_importance = models.IntegerField()
     repetition_type = models.CharField(max_length=20)  # numdays, weekly, none
     repetition_number = models.IntegerField()  # 1 - inf. for numdays, 0 - 6 for Sun-Sat
-    from_date = models.DateField(default=datetime.date.today)
-    until_date = models.DateField(default=datetime.date.today)
+    from_date = models.DateField(default=lambda: make_aware(datetime.datetime.now()))
+    until_date = models.DateField(default=lambda: make_aware(datetime.datetime.now()))
     expected_minutes = models.IntegerField()
+    begin_datetime = models.DateTimeField(default=lambda: make_aware(datetime.datetime.now()))
+    end_datetime = models.DateTimeField(default=lambda: make_aware(datetime.datetime.now()))
+    parent = models.ForeignKey('self', null=True, on_delete=models.CASCADE, related_name='+')
+    exception = models.BooleanField()
+    exception_child = models.ForeignKey('self', on_delete=models.CASCADE, null=True, related_name='+')
+    scheduled = models.BooleanField()
 
 
 class User_Task(models.Model):

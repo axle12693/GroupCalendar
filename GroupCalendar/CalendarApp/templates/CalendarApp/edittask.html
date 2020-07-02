@@ -16,9 +16,18 @@
             </fieldset>
         </div>
         <div class="modal-footer form-group">
-            <button type="button" class="btn btn-primary" id="editTaskButton">Edit Task</button>
-            {% if not noDelete %}
-            <button type="button" class="btn btn-danger" id="deleteTaskButton">Delete Task</button>
+            {% if hasSiblings %}
+                <button type="button" class="btn btn-primary" id="editTaskButton">Edit Just This Task</button>
+                <button type="button" class="btn btn-primary" id="editMultiTaskButton">Edit All Instances</button>
+                {% if not noDelete %}
+                    <button type="button" class="btn btn-danger" id="deleteTaskButton">Delete Just This Task</button>
+                    <button type="button" class="btn btn-danger" id="deleteMultiTaskButton">Delete All Instances</button>
+                {% endif %}
+            {% else %}
+                <button type="button" class="btn btn-primary" id="editTaskButton">Edit Task</button>
+                {% if not noDelete %}
+                    <button type="button" class="btn btn-danger" id="deleteTaskButton">Delete Task</button>
+                {% endif %}
             {% endif %}
         </div>
     </form>

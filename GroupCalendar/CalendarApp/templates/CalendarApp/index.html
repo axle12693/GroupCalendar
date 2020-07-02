@@ -69,6 +69,32 @@
                             color: '#ff0000'
                         },
                     {% endfor %}
+                    {% for task in tasksOwned %}
+                        {
+                            title: "{{task.task_text}}",
+                            start: "{{task.begin_datetime | date:"Y\-m\-d\TH\:i\:s"}}",
+                            end: "{{task.end_datetime | date:"Y\-m\-d\TH\:i\:s"}}",
+                            url: "javascript:goToEditItem({{task.pk}}, 't');"
+                        },
+                    {% endfor %}
+                    {% for task in tasksShared %}
+                        {
+                            title: "{{task.task_text}}",
+                            start: "{{task.begin_datetime | date:"Y\-m\-d\TH\:i\:s"}}",
+                            end: "{{task.end_datetime | date:"Y\-m\-d\TH\:i\:s"}}",
+                            url: "javascript:goToEditItem({{task.pk}}, 't');",
+                            color: '#257e4a'
+                        },
+                    {% endfor %}
+                    {% for task in tasksInViewedCalendars %}
+                        {
+                            title: "{{task.task_text}}",
+                            start: "{{task.begin_datetime | date:"Y\-m\-d\TH\:i\:s"}}",
+                            end: "{{task.end_datetime | date:"Y\-m\-d\TH\:i\:s"}}",
+                            url: "javascript:goToEditItem({{task.pk}}, 't');",
+                            color: '#ff0000'
+                        },
+                    {% endfor %}
                 ]
             });
 
@@ -302,14 +328,26 @@
         }
 
         function goToEditItem(itemPK, type) {
-            jQuery.get("{% url 'editevent' %}", {pk:itemPK, type: type}, function(data) {
-                $("#bd-example-modal-lg").html(data);
-                $("#bd-example-modal-lg").modal("show");
-                $("#editEventButton").click(editEventButtonHandler);
-                $("#deleteEventButton").click(deleteEventButtonHandler);
-                $("#editMultiEventButton").click(editMultiEventButtonHandler);
-                $("#deleteMultiEventButton").click(deleteMultiEventButtonHandler);
-            });
+            if (type == "e") {
+                jQuery.get("{% url 'editevent' %}", {pk:itemPK, type: type}, function(data) {
+                    $("#bd-example-modal-lg").html(data);
+                    $("#bd-example-modal-lg").modal("show");
+                    $("#editEventButton").click(editEventButtonHandler);
+                    $("#deleteEventButton").click(deleteEventButtonHandler);
+                    $("#editMultiEventButton").click(editMultiEventButtonHandler);
+                    $("#deleteMultiEventButton").click(deleteMultiEventButtonHandler);
+                });
+            }
+            else {
+                jQuery.get("{% url 'edittask' %}", {pk:itemPK, type: type}, function(data) {
+                    $("#bd-example-modal-lg").html(data);
+                    $("#bd-example-modal-lg").modal("show");
+                    $("#editTaskButton").click(editTaskButtonHandler);
+                    $("#deleteTaskButton").click(deleteTaskButtonHandler);
+                    $("#editMultiTaskButton").click(editMultiTaskButtonHandler);
+                    $("#deleteMultiTaskButton").click(deleteMultiTaskButtonHandler);
+                });
+            }
         }
 
         function editEventButtonHandler()
@@ -408,6 +446,110 @@
                         $("#deleteEventButton").click(deleteEventButtonHandler);
                         $("#editMultiEventButton").click(editMultiEventButtonHandler);
                         $("#deleteMultiEventButton").click(deleteMultiEventButtonHandler);
+                    },
+                    302: function(response, txtStatus, request) {
+                        window.location.replace(window.location.href)
+                    }
+                }
+            });
+        }
+
+        function editTaskButtonHandler()
+        {
+            $.ajax({
+                method: 'post',
+                processData: false,
+                contentType: false,
+                cache: false,
+                data: new FormData($("#editTaskForm").get(0)),
+                enctype: 'multipart/form-data',
+                url: '{% url 'task' %}',
+                statusCode:{
+                    200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").html(response);
+                        $("#editTaskButton").click(editTaskButtonHandler);
+                        $("#deleteTaskButton").click(deleteTaskButtonHandler);
+                        $("#editMultiTaskButton").click(editMultiTaskButtonHandler);
+                        $("#deleteMultiTaskButton").click(deleteMultiTaskButtonHandler);
+                    },
+                    302: function(response, txtStatus, request) {
+                        window.location.replace(window.location.href)
+                    }
+                }
+            });
+        }
+
+        function deleteTaskButtonHandler()
+        {
+            $("#reqtype").val("delete");
+            $.ajax({
+                method: 'post',
+                processData: false,
+                contentType: false,
+                cache: false,
+                data: new FormData($("#editTaskForm").get(0)),
+                enctype: 'multipart/form-data',
+                url: '{% url 'task' %}',
+                statusCode:{
+                    200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").html(response);
+                        $("#editTaskButton").click(editTaskButtonHandler);
+                        $("#deleteTaskButton").click(deleteTaskButtonHandler);
+                        $("#editMultiTaskButton").click(editMultiTaskButtonHandler);
+                        $("#deleteMultiTaskButton").click(deleteMultiTaskButtonHandler);
+                    },
+                    302: function(response, txtStatus, request) {
+                        window.location.replace(window.location.href)
+                    }
+                }
+            });
+        }
+
+        function editMultiTaskButtonHandler()
+        {
+            $("#id_all").val("true");
+            $.ajax({
+                method: 'post',
+                processData: false,
+                contentType: false,
+                cache: false,
+                data: new FormData($("#editTaskForm").get(0)),
+                enctype: 'multipart/form-data',
+                url: '{% url 'task' %}',
+                statusCode:{
+                    200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").html(response);
+                        $("#editTaskButton").click(editTaskButtonHandler);
+                        $("#deleteTaskButton").click(deleteTaskButtonHandler);
+                        $("#editMultiTaskButton").click(editMultiTaskButtonHandler);
+                        $("#deleteMultiTaskButton").click(deleteMultiTaskButtonHandler);
+                    },
+                    302: function(response, txtStatus, request) {
+                        window.location.replace(window.location.href)
+                    }
+                }
+            });
+        }
+
+        function deleteMultiTaskButtonHandler()
+        {
+            $("#id_all").val("true");
+            $("#reqtype").val("delete");
+            $.ajax({
+                method: 'post',
+                processData: false,
+                contentType: false,
+                cache: false,
+                data: new FormData($("#editTaskForm").get(0)),
+                enctype: 'multipart/form-data',
+                url: '{% url 'task' %}',
+                statusCode:{
+                    200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").html(response);
+                        $("#editTaskButton").click(editTaskButtonHandler);
+                        $("#deleteTaskButton").click(deleteTaskButtonHandler);
+                        $("#editMultiTaskButton").click(editMultiTaskButtonHandler);
+                        $("#deleteMultiTaskButton").click(deleteMultiTaskButtonHandler);
                     },
                     302: function(response, txtStatus, request) {
                         window.location.replace(window.location.href)

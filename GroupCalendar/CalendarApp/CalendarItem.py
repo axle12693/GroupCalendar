@@ -218,7 +218,7 @@ class Event(CalendarItem):
                 eventInFuture.end_datetime += datetime.timedelta(parent_obj.repetition_number)
 
 
-class Task(CalendarItem):
+class Task_Old(CalendarItem):
     def parseNumDays(self, num):
         n = 8
         ls = []
@@ -269,3 +269,213 @@ class Task(CalendarItem):
                 if saved_share.user not in self.info["shares"]:
                     saved_share.delete()
 
+class Task(CalendarItem):
+    def parseWeeklyDays(self, num):
+        n = 8
+        ls = []
+        while n < num:
+            n *= 2
+        while n >= 1:
+            if num % n != num:
+                ls.append(int(n))
+                num = num % n
+            n /= 2
+        return ls
+
+    def save(self, pk=None):
+        if pk:
+            task_obj = CalAppModels.Task.objects.get(pk=pk)
+            task_obj.task_text = self.info["text"]
+            task_obj.owner_importance = self.info["owner_importance"]
+            task_obj.repetition_type = self.info["repetition_type"]
+            task_obj.repetition_number = self.info["repetition_number"]
+            task_obj.from_date = self.info["from_date"]
+            task_obj.until_date = self.info["until_date"]
+            task_obj.due_date = self.info["due_datetime"]
+            task_obj.available_date = self.info["available_datetime"]
+            task_obj.expected_minutes = self.info["expected_minutes"]
+            if task_obj.parent:
+                task_obj.exception = True  # Because the child was changed independently of the parent
+                temp = self.info["repetition_type"]
+                self.info["repetition_type"] = "none"
+                self.info["exception_child"] = task_obj
+                Event(self.info, self.owner).save()
+                self.info["exception_child"] = None
+                self.info["repetition_type"] = temp
+            task_obj.save()
+
+
+            if not task_obj.parent:
+                self._repeat(task_obj)
+        else:
+            task_obj = CalAppModels.Task(task_text=self.info["text"],
+                                         owner=self.owner,
+                                         owner_importance=self.info["owner_importance"],
+                                         repetition_type=self.info["repetition_type"],
+                                         repetition_number=self.info["repetition_number"],
+                                         from_date=self.info["from_date"],
+                                         until_date=self.info["until_date"],
+                                         exception=False,
+                                         scheduled=False,
+                                         due_date=self.info["due_datetime"],
+                                         available_date=self.info["available_datetime"],
+                                         expected_minutes=self.info["expected_minutes"])
+            task_obj.save()
+
+            self._repeat(task_obj)
+
+        if self.info["shares"]:
+            for share in self.info["shares"]:
+                saved_shares = CalAppModels.User_Task.objects.filter(task=task_obj)
+                if len(saved_shares) == 0:
+                    user_task_obj = CalAppModels.User_Task(task=task_obj,
+                                                           user=share,
+                                                           importance=1,
+                                                           status="invited")
+                    user_task_obj.save()
+        if pk:
+            saved_shares = CalAppModels.User_Task.objects.filter(task=task_obj)
+            for saved_share in saved_shares:
+                if saved_share.user not in self.info["shares"]:
+                    saved_share.delete()
+
+    def _repeat(self, parent_obj):
+        children = CalAppModels.Task.objects.filter(parent=parent_obj)
+        exceptions = children.filter(exception=True)
+        for child in children:
+            if not child.exception:
+                child.delete()
+        task_obj = CalAppModels.Task(task_text=self.info["text"],
+                                     owner=self.owner,
+                                     owner_importance=self.info["owner_importance"],
+                                     repetition_type=self.info["repetition_type"],
+                                     repetition_number=self.info["repetition_number"],
+                                     from_date=self.info["from_date"],
+                                     until_date=self.info["until_date"],
+                                     exception=False,
+                                     scheduled=False,
+                                     due_date=self.info["due_datetime"],
+                                     available_date=self.info["available_datetime"],
+                                     expected_minutes=self.info["expected_minutes"])
+        isException = False
+        for ex in exceptions:
+            if task_obj.available_date == ex.available_date:
+                isException = True
+        if not isException:
+            task_obj.save()
+        if parent_obj.repetition_type == "weekly":
+            daysList = [int(log2(day)) + 1 for day in self.parseWeeklyDays(parent_obj.repetition_number)]
+
+        # Extend into the past
+        taskInPast = deepcopy(parent_obj)
+        if parent_obj.repetition_type == "weekly":
+            taskInPast.available_date -= datetime.timedelta(1)
+            taskInPast.due_date -= datetime.timedelta(1)
+        elif parent_obj.repetition_type == "numdays":
+            taskInPast.available_date -= datetime.timedelta(parent_obj.repetition_number)
+            taskInPast.due_date -= datetime.timedelta(parent_obj.repetition_number)
+        else:
+            return
+        while taskInPast.available_date.date() >= taskInPast.from_date:
+            if parent_obj.repetition_type == "weekly":
+                dow = taskInPast.available_date.isoweekday() % 7 + 1
+                if dow in daysList:
+                    newTask = CalAppModels.Task(task_text=taskInPast.task_text,
+                                                owner=self.owner,
+                                                owner_importance=taskInPast.owner_importance,
+                                                repetition_type=taskInPast.repetition_type,
+                                                repetition_number=taskInPast.repetition_number,
+                                                from_date=taskInPast.from_date,
+                                                until_date=taskInPast.until_date,
+                                                exception=False,
+                                                parent=parent_obj,
+                                                scheduled=False,
+                                                due_date=taskInPast.due_date,
+                                                available_date=taskInPast.available_date,
+                                                expected_minutes=taskInPast.expected_minutes)
+                    isException = False
+                    for ex in exceptions:
+                        if newTask.available_date == ex.available_date:
+                            isException = True
+                    if not isException:
+                        newTask.save()
+                taskInPast.available_date -= datetime.timedelta(1)
+                taskInPast.due_date -= datetime.timedelta(1)
+            elif parent_obj.repetition_type == "numdays":
+                newTask = CalAppModels.Task(task_text=taskInPast.task_text,
+                                            owner=self.owner,
+                                            owner_importance=taskInPast.owner_importance,
+                                            repetition_type=taskInPast.repetition_type,
+                                            repetition_number=taskInPast.repetition_number,
+                                            from_date=taskInPast.from_date,
+                                            until_date=taskInPast.until_date,
+                                            exception=False,
+                                            parent=parent_obj,
+                                            scheduled=False,
+                                            due_date=taskInPast.due_date,
+                                            available_date=taskInPast.available_date,
+                                            expected_minutes=taskInPast.expected_minutes)
+                isException = False
+                for ex in exceptions:
+                    if newTask.available_date == ex.available_date:
+                        isException = True
+                if not isException:
+                    newTask.save()
+                taskInPast.available_date -= datetime.timedelta(parent_obj.repetition_number)
+                taskInPast.due_date -= datetime.timedelta(parent_obj.repetition_number)
+
+        # Extend into the future
+        taskInFuture = deepcopy(parent_obj)
+        if parent_obj.repetition_type == "weekly":
+            taskInFuture.available_date += datetime.timedelta(1)
+            taskInFuture.due_date += datetime.timedelta(1)
+        elif parent_obj.repetition_type == "numdays":
+            taskInFuture.available_date += datetime.timedelta(parent_obj.repetition_number)
+            taskInFuture.due_date += datetime.timedelta(parent_obj.repetition_number)
+        while taskInFuture.available_date.date() <= taskInFuture.until_date:
+            if parent_obj.repetition_type == "weekly":
+                dow = taskInFuture.available_date.isoweekday() % 7 + 1
+                if dow in daysList:
+                    newTask = CalAppModels.Task(task_text=taskInFuture.task_text,
+                                                owner=self.owner,
+                                                owner_importance=taskInFuture.owner_importance,
+                                                repetition_type=taskInFuture.repetition_type,
+                                                repetition_number=taskInFuture.repetition_number,
+                                                from_date=taskInFuture.from_date,
+                                                until_date=taskInFuture.until_date,
+                                                exception=False,
+                                                parent=parent_obj,
+                                                scheduled=False,
+                                                due_date=taskInFuture.due_date,
+                                                available_date=taskInFuture.available_date,
+                                                expected_minutes=taskInFuture.expected_minutes)
+                    isException = False
+                    for ex in exceptions:
+                        if newTask.available_date == ex.available_date:
+                            isException = True
+                    if not isException:
+                        newTask.save()
+                taskInFuture.available_date += datetime.timedelta(1)
+                taskInFuture.due_date += datetime.timedelta(1)
+            elif parent_obj.repetition_type == "numdays":
+                newTask = CalAppModels.Task(task_text=taskInFuture.task_text,
+                                            owner=self.owner,
+                                            owner_importance=taskInFuture.owner_importance,
+                                            repetition_type=taskInFuture.repetition_type,
+                                            repetition_number=taskInFuture.repetition_number,
+                                            from_date=taskInFuture.from_date,
+                                            until_date=taskInFuture.until_date,
+                                            exception=False,
+                                            parent=parent_obj,
+                                            scheduled=False,
+                                            due_date=taskInFuture.due_date,
+                                            available_date=taskInFuture.available_date,
+                                            expected_minutes=taskInFuture.expected_minutes)
+                isException = False
+                for ex in exceptions:
+                    if newTask.available_date == ex.available_date:
+                        isException = True
+                if not isException:
+                    newTask.save()
+                taskInFuture.available_date += datetime.timedelta(parent_obj.repetition_number)
+                taskInFuture.due_date += datetime.timedelta(parent_obj.repetition_number)
