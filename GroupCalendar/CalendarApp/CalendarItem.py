@@ -356,7 +356,8 @@ class Task(CalendarItem):
                                      scheduled=False,
                                      due_date=self.info["due_datetime"],
                                      available_date=self.info["available_datetime"],
-                                     expected_minutes=self.info["expected_minutes"])
+                                     expected_minutes=self.info["expected_minutes"],
+                                     parent=parent_obj)
         isException = False
         for ex in exceptions:
             if task_obj.available_date == ex.available_date:
