@@ -29,22 +29,22 @@ class User_Event(models.Model):
 
 
 def get_aware_now():
-    make_aware(datetime.datetime.now())
+    return make_aware(datetime.datetime.now())
 
 
 class Task(models.Model):
     task_text = models.CharField(max_length=settings.CALENDAR_ITEM_MAX_TEXT_LENGTH)
     due_date = models.DateTimeField()
     available_date = models.DateTimeField()
-    owner = models.ForeignKey(User, on_delete=models.PROTECT)
+    owner = models.ForeignKey(User, on_delete=models.CASCADE)
     owner_importance = models.IntegerField()
     repetition_type = models.CharField(max_length=20)  # numdays, weekly, none
     repetition_number = models.IntegerField()  # 1 - inf. for numdays, 0 - 6 for Sun-Sat
-    from_date = models.DateField(default=get_aware_now())
-    until_date = models.DateField(default=get_aware_now())
+    from_date = models.DateField(default=get_aware_now)
+    until_date = models.DateField(default=get_aware_now)
     expected_minutes = models.IntegerField()
-    begin_datetime = models.DateTimeField(default=get_aware_now())
-    end_datetime = models.DateTimeField(default=get_aware_now())
+    begin_datetime = models.DateTimeField(default=get_aware_now)
+    end_datetime = models.DateTimeField(default=get_aware_now)
     parent = models.ForeignKey('self', null=True, on_delete=models.CASCADE, related_name='+')
     exception = models.BooleanField()
     exception_child = models.ForeignKey('self', on_delete=models.CASCADE, null=True, related_name='+')

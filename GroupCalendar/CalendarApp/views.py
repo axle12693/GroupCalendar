@@ -12,6 +12,8 @@ from django.conf import settings
 import asyncio
 import time
 from django.utils.timezone import make_aware
+import logging
+
 
 class FailedToScheduleException(Exception):
     pass
@@ -143,12 +145,18 @@ def Event(request):
     def deleteEvent(request):
         try:
             obj = CalAppModels.Event.objects.get(pk=request.POST["pk"])
+            if not obj.owner == request.user:
+                raise PermissionDenied
             numSiblings = len(CalAppModels.Event.objects.filter(parent=obj.parent)) - 1
             if request.POST["all"] == 'true' or numSiblings == 0:
                 obj = obj.parent
-            if not obj.owner == request.user:
-                raise PermissionDenied
-            obj.delete()
+                obj.delete()
+            else:
+                obj.exception = True
+                obj.scheduled = False
+                obj.save()
+
+
             Schedule(request)
             return HttpResponse(status="302", content="/")
         except:
@@ -212,13 +220,20 @@ def Task(request):
 
     def deleteTask(request):
         # try:
+
         obj = CalAppModels.Task.objects.get(pk=request.POST["pk"])
+        if not obj.owner == request.user:
+            raise PermissionDenied
         numSiblings = len(CalAppModels.Task.objects.filter(parent=obj.parent)) - 1
         if request.POST["all"] == 'true' or numSiblings == 0:
             obj = obj.parent
-        if not obj.owner == request.user:
-            raise PermissionDenied
-        obj.delete()
+            obj.delete()
+        else:
+            obj.exception = True
+            obj.scheduled = False
+            obj.save()
+
+
         Schedule(request)
         return HttpResponse(status="302", content="/")
         # except:
@@ -245,8 +260,31 @@ def AddTask(request):
     """Provides the Add Task form. Supports GET."""
     return render(request, "CalendarApp/AddTask.html", {'form': AddTaskForm(user=request.user)})
 
+def _related_by_user(calItem1, calItem2):
+    owner1 = calItem1.owner
+    owner2 = calItem2.owner
+    if owner1 == owner2:
+        return True
+    if type(calItem1) == CalAppModels.Task:
+        shares = CalAppModels.User_Task.objects.filter(task=calItem1)
+        usersShared1 = [share.user for share in shares]
+    else:
+        shares = CalAppModels.User_Event.objects.filter(task=calItem1)
+        usersShared1 = [share.user for share in shares]
+
+    if type(calItem2) == CalAppModels.Task:
+        shares = CalAppModels.User_Task.objects.filter(task=calItem2)
+        usersShared2 = [share.user for share in shares]
+    else:
+        shares = CalAppModels.User_Event.objects.filter(task=calItem2)
+        usersShared2 = [share.user for share in shares]
+
+    if owner1 in usersShared2 or owner2 in usersShared1:
+        return True
+    return False
+
 def _conflicting(calItem1, calItem2):
-    return (calItem1.begin_datetime > calItem2.begin_datetime and calItem1.begin_datetime < calItem2.end_datetime)\
+    return _related_by_user(calItem1, calItem2) and (calItem1.begin_datetime > calItem2.begin_datetime and calItem1.begin_datetime < calItem2.end_datetime)\
             or (calItem2.begin_datetime > calItem1.begin_datetime and calItem2.begin_datetime < calItem1.end_datetime)\
             or (calItem1.begin_datetime == calItem2.begin_datetime)
 
@@ -312,7 +350,6 @@ measure = 0
 def _create_schedule(scheduled, unscheduled, tick, second_limit, possibilitiesBelowExhausted):
     global needToReschedule, measure
     rightNow = datetime.datetime.now()
-    # print("It has taken", time.time() - tick, "seconds to schedule", len(scheduled), "items")
     iAmExhausted = False
     if time.time() - tick > second_limit:
         raise ScheduleTimedOutException("Timed out!")
@@ -323,29 +360,22 @@ def _create_schedule(scheduled, unscheduled, tick, second_limit, possibilitiesBe
         repeatEverything = False
         item_to_schedule = unscheduled[-1]
         if type(item_to_schedule[0]) == CalAppModels.Event:
-            # print("Now attempting to schedule: ", item_to_schedule[0].event_text)
-            # print("Event is at:", item_to_schedule[0].begin_datetime)
             iAmExhausted = True
             givenUp = False
             for item in scheduled:
                 if _conflicting(item[0], item_to_schedule[0]):
                     if type(item[0]) == CalAppModels.Task and not possibilitiesBelowExhausted:
                         needToReschedule.append(item)
-                        # print("Failed to schedule event because of conflict with a task. Raising exception to reschedule previous items.")
                         raise FailedToScheduleException("Can't schedule event")
                     else:
-                        # print("Entirely failed to schedule item. Removing from possibility of scheduling.")
                         unscheduled.remove(item_to_schedule)
                         item_to_schedule[0].scheduled = False
                         givenUp = True
                         break
             if not givenUp:
-                # print("Successfully scheduled!")
                 scheduled.append(item_to_schedule)
                 unscheduled.remove(item_to_schedule)
         else:
-            # print("Now attempting to schedule: ", item_to_schedule[0].task_text)
-            # print("Task is available between:", item_to_schedule[0].available_date, "and", item_to_schedule[0].due_date)
             overdue = item_to_schedule[0].begin_datetime + datetime.timedelta(minutes=item_to_schedule[0].expected_minutes) > item_to_schedule[0].due_date \
                       or make_aware(rightNow + datetime.timedelta(minutes=item_to_schedule[0].expected_minutes)) > item_to_schedule[0].due_date
             item_to_schedule[0].begin_datetime = item_to_schedule[0].available_date
@@ -375,7 +405,6 @@ def _create_schedule(scheduled, unscheduled, tick, second_limit, possibilitiesBe
                     scheduled.append(item_to_schedule)
                     unscheduled.remove(item_to_schedule)
                     success = True
-                    # print("Successfully scheduled at:", item_to_schedule[0].begin_datetime)
                     break
                 if overdue:
                     if item_to_schedule[0].begin_datetime + datetime.timedelta(minutes=item_to_schedule[0].expected_minutes) \
@@ -396,14 +425,11 @@ def _create_schedule(scheduled, unscheduled, tick, second_limit, possibilitiesBe
                     print("I got exhausted, as well as everyone below me!")
                     print("I am ", item_to_schedule[0].task_text, "due at", item_to_schedule[0].due_date)
                 else:
-                    # print("Failed to schedule!")
                     raise FailedToScheduleException("Can't schedule task")
 
         try:
-            # print("I successfully put the current item in the schedule. Now attempting to add the next item.")
             _create_schedule(scheduled, unscheduled, tick, second_limit, iAmExhausted)
         except FailedToScheduleException as ex:
-            # print("I got an exception! someone above wants me to reschedule if I can.")
             if needToReschedule and not (item_to_schedule in needToReschedule):
                 print("Skipped down")
                 unscheduled.append(item_to_schedule)
@@ -429,42 +455,47 @@ def _create_schedule(scheduled, unscheduled, tick, second_limit, possibilitiesBe
                 exit(1)
 
 def _get_all_related_scheduling_info(user):
-    all_events = CalAppModels.Event.objects.filter(owner=user)
-    all_tasks = CalAppModels.Task.objects.filter(owner=user)
+    logger = logging.getLogger("mylogger")
+    logger.info("Getting related scheduling info....")
+    all_events = set(CalAppModels.Event.objects.filter(owner=user, parent__isnull=False, exception=False))
+    all_tasks = set(CalAppModels.Task.objects.filter(owner=user, parent__isnull=False, exception=False))
     all_event_shares = CalAppModels.User_Event.objects.filter(event__in=all_events)
-    all_task_shares = CalAppModels.User_Task.objects.filter(task__in=all_tasks)
-    all_related_user_pks = []
-    for share in all_event_shares:
-        all_related_user_pks.append(share.user.pk)
+    all_task_shares = set(CalAppModels.User_Task.objects.filter(task__in=all_tasks))
+    all_related_users = {share.user for share in all_event_shares}
     for share in all_task_shares:
-        all_related_user_pks.append(share.user.pk)
-    all_related_users = CalAppModels.User.objects.filter(pk__in=all_related_user_pks)
+        all_related_users.add(share.user)
+    for event in all_events:
+        all_related_users.add(event.owner)
+    for task in all_tasks:
+        all_related_users.add(task.owner)
     num_users = len(all_related_users)
-    new_num_users = 0
-    while num_users != new_num_users:
-        num_users = new_num_users
+    new_num_users = len(all_related_users) - 1
+    while new_num_users != 0:
+        logger.info("Have to loop...")
+        num_users = len(all_related_users)
         for related_user in all_related_users:
-            all_events = all_events.union(CalAppModels.Event.objects.filter(owner=related_user))
-            all_tasks = all_tasks.union(CalAppModels.Task.objects.filter(owner=related_user))
-        all_event_shares = all_event_shares.union(CalAppModels.User_Event.objects.filter(event__in=all_events))
-        all_task_shares = all_task_shares.union(CalAppModels.User_Task.objects.filter(task__in=all_tasks))
-        all_related_user_pks = []
+            all_events = all_events.union(set(CalAppModels.Event.objects.filter(owner=related_user, parent__isnull=False, exception=False)))
+            all_tasks = all_tasks.union(set(CalAppModels.Task.objects.filter(owner=related_user, parent__isnull=False, exception=False)))
+        new_event_shares = CalAppModels.User_Event.objects.filter(event__in=all_events)
+        all_event_shares = all_event_shares.union(new_event_shares)
+        all_task_shares = all_task_shares.union(set(CalAppModels.User_Task.objects.filter(task__in=all_tasks)))
         for share in all_event_shares:
-            all_related_user_pks.append(share.user.pk)
+            all_related_users.add(share.user)
         for share in all_task_shares:
-            all_related_user_pks.append(share.user.pk)
+            all_related_users.add(share.user)
         for event in all_events:
-            all_related_user_pks.append(event.owner.pk)
+            all_related_users.add(event.owner)
         for task in all_tasks:
-            all_related_user_pks.append(task.owner.pk)
-        all_related_users = CalAppModels.User.objects.filter(pk__in=all_related_user_pks)
-        new_num_users = len(all_related_users)
+            all_related_users.add(task.owner)
+        new_num_users = len(all_related_users) - num_users
     for related_user in all_related_users:
-        all_events = all_events.union(CalAppModels.Event.objects.filter(owner=related_user))
-        all_tasks = all_tasks.union(CalAppModels.Task.objects.filter(owner=related_user))
-    return all_events.filter(parent__isnull=False), all_tasks.filter(parent__isnull=False), all_related_users
+        all_events = all_events.union(set(CalAppModels.Event.objects.filter(owner=related_user, parent__isnull=False, exception=False)))
+        all_tasks = all_tasks.union(set(CalAppModels.Task.objects.filter(owner=related_user, parent__isnull=False, exception=False)))
+    logger.info("Done!")
+    return all_events, all_tasks, all_related_users
 
 def _schedule_user_quick(user):
+    logger = logging.getLogger("mylogger")
     tick = time.time()
     all_events, all_tasks, all_related_users = _get_all_related_scheduling_info(user)
     cal_item_stats = sorted(_get_cal_item_stats(all_events, all_tasks, all_related_users),
@@ -493,7 +524,7 @@ def _schedule_user_quick(user):
             tick2 = time.time()
             _create_schedule(scheduled, unscheduled, tick, 30, True)
             last_successful = (copy.copy(scheduled), copy.copy(unscheduled))
-            print("Successfully scheduled", len(scheduled), "items")
+            logger.info("Successfully scheduled" + str(len(scheduled)) + "items")
             if (time.time() - tick2 > 0.01) or (time.time() - tick > 20) or len(cal_item_stats) == 0 or len(scheduled) % 10 == 0:
                 for item in unscheduled:
                     item[0].scheduled = False
@@ -509,7 +540,7 @@ def _schedule_user_quick(user):
             #     for item in last_successful[0]:
             #         item[0].scheduled = True
             #         item[0].save()
-            print(e)
+            logger.info(e)
             return
 
 def _try_to_schedule_before(item_to_schedule, scheduled, time_to_schedule_before):
@@ -546,27 +577,28 @@ def _try_to_schedule_before(item_to_schedule, scheduled, time_to_schedule_before
     return success, to_remove
 
 def _add_task_to_schedule(item_to_schedule, scheduled):
+    logger = logging.getLogger("mylogger")
     right_now = datetime.datetime.now()
-    print("attempting to add the item before its due date, first try")
+    logger.info("attempting to add the item before its due date, first try")
     success, to_remove = _try_to_schedule_before(item_to_schedule, scheduled, item_to_schedule[0].due_date)
     if to_remove and not success:
         for item in to_remove:
             item[0].scheduled = False
             scheduled.remove(item)
-        print("Fail, removed items. Second try.")
+        logger.info("Fail, removed items. Second try.")
         success, _ = _try_to_schedule_before(item_to_schedule, scheduled, item_to_schedule[0].due_date)
         if not success:
-            print("Failed. Replaced items.")
+            logger.info("Failed. Replaced items.")
             for item in to_remove:
                 item[0].scheduled = True
                 scheduled.append(item)
             to_remove = []
             scheduled = sorted(scheduled, key=lambda a: a[1] + a[2] * 0.1)
         else:
-            print("Succeeded on second try")
+            logger.info("Succeeded on second try")
             return success, to_remove
     hourIncrement = 24
-    while (hourIncrement < 336) and (not success):
+    while (hourIncrement <= 72) and (not success):
         if item_to_schedule[0].due_date < make_aware(right_now + datetime.timedelta(hours=hourIncrement)):
             success, to_remove = _try_to_schedule_before(item_to_schedule, scheduled, make_aware(
                 right_now + datetime.timedelta(hours=hourIncrement)))
@@ -588,22 +620,23 @@ def _add_task_to_schedule(item_to_schedule, scheduled):
     return success, []
 
 def _add_event_to_schedule(item_to_schedule, scheduled):
+    logger = logging.getLogger("mylogger")
     to_remove = []
     removed_items = []
     for item in scheduled:
         conflict = _conflicting(item[0], item_to_schedule[0])
         if conflict:
             if type(item[0]) == CalAppModels.Task:
-                print("Conflict found with:", item[0].task_text)
-                print("Trying to reschedule the other")
+                logger.info("Conflict found with:", item[0].task_text)
+                logger.info("Trying to reschedule the other")
                 to_remove.append(item)
             else:
-                print("Conflict found with:", item[0].event_text)
+                logger.info("Conflict found with:", item[0].event_text)
                 if item_to_schedule[1] + item_to_schedule[2] * 0.1 > item[1] + item[2] * 0.1:
-                    print("Trying to reschedule the other")
+                    logger.info("Trying to reschedule the other")
                     to_remove.append(item)
                 else:
-                    print("Not going to bother trying to reschedule the other")
+                    logger.info("Not going to bother trying to reschedule the other")
                     return False, []
 
     item_to_schedule[0].scheduled = True
@@ -614,42 +647,42 @@ def _add_event_to_schedule(item_to_schedule, scheduled):
 
     overall_success = True
 
-    print("Length of to_remove:", len(to_remove))
+    logger.info("Length of to_remove:" + str(len(to_remove)))
 
     for i in range(len(to_remove)-1, -1, -1):  # backwards to ensure removing items works
         item = to_remove[i]
-        print("Trying to reschedule an item...")
+        logger.info("Trying to reschedule an item...")
         if type(item[0]) == CalAppModels.Task:
-            print("The item is a task")
+            logger.info("The item is a task")
             success, _ = _try_to_schedule_before(item, scheduled, item[0].due_date)
             if not success:
-                print("One of them failed to reschedule once I was put in")
+                logger.info("One of them failed to reschedule once I was put in")
                 if item_to_schedule[1] + item_to_schedule[2] * 0.1 > item[1] + item[2] * 0.1:
-                    print("But it's OK because I'm more important")
+                    logger.info("But it's OK because I'm more important")
                 else:
-                    print("and I'm less important, so I'm unscheduling myself")
+                    logger.info("and I'm less important, so I'm unscheduling myself")
                     overall_success = False
                     item_to_schedule[0].scheduled = False
                     scheduled.remove(item_to_schedule)
                     break
             else:
-                print("Succeeded in rescheduling a removed item once I was put in")
-                print("I am scheduled for", item_to_schedule[0].begin_datetime)
-                print("Other is scheduled for", item[0].begin_datetime)
+                logger.info("Succeeded in rescheduling a removed item once I was put in")
+                logger.info("I am scheduled for" + str(item_to_schedule[0].begin_datetime))
+                logger.info("Other is scheduled for" + str(item[0].begin_datetime))
                 to_remove.remove(item)
                 item[0].save()
-    print("got here...")
+    logger.info("got here...")
     for item in to_remove:
-        print("There are still", len(to_remove), "items in to_remove")
+        logger.info("There are still" + str(len(to_remove)) + "items in to_remove")
         if type(item[0]) == CalAppModels.Task:
-            print("This one is a task")
+            logger.info("This one is a task")
             success, _ = _try_to_schedule_before(item, scheduled, item[0].due_date)
         else:
-            print("This one is an event")
+            logger.info("This one is an event")
             success, removed = _add_event_to_schedule(item, scheduled)
             removed_items.append += removed
         if not success:
-            print("Unsuccessful in rescheduling this item")
+            logger.info("Unsuccessful in rescheduling this item")
             removed_items.append(item)
         else:
             item[0].save()
@@ -658,6 +691,7 @@ def _add_event_to_schedule(item_to_schedule, scheduled):
 
 
 def _schedule_user_quick_2(user):
+    logger = logging.getLogger("mylogger")
     tick = time.time()
     right_now = datetime.datetime.now()
     all_events, all_tasks, all_related_users = _get_all_related_scheduling_info(user)
@@ -674,27 +708,28 @@ def _schedule_user_quick_2(user):
             scheduled.append(item)
         else:
             unscheduled.append(item)
+
     while (time.time() - tick < 30) and len(unscheduled) > 0:
         item_to_schedule = unscheduled.pop(-1)
         if type(item_to_schedule[0]) == CalAppModels.Task:
-            print("Attempting to add", item_to_schedule[0].task_text)
+            logger.info("Attempting to add" + item_to_schedule[0].task_text)
             success, removed_items = _add_task_to_schedule(item_to_schedule, scheduled)
         else:
-            print("Attempting to add", item_to_schedule[0].event_text)
+            logger.info("Attempting to add", item_to_schedule[0].event_text)
             success, removed_items = _add_event_to_schedule(item_to_schedule, scheduled)
         if removed_items:
-            print("Removed", removed_items, "during the attempt")
+            logger.info("Removed" +  str(removed_items) + "during the attempt")
             for item in removed_items:
                 unscheduled.append(item)
                 item[0].scheduled = False
                 item[0].save()
                 unscheduled = sorted(unscheduled, key=lambda a: a[1] + a[2] * 0.1)
         if success:
-            print("Succeeded")
+            logger.info("Succeeded")
             scheduled.append(item_to_schedule)
 
         else:
-            print("Failed")
+            logger.info("Failed")
         item_to_schedule[0].save()
 
 
@@ -705,7 +740,6 @@ def Schedule(request):
         pass
     if request.user.is_authenticated:
         _schedule_user_quick_2(request.user)
-        print(measure)
         return HttpResponse("Scheduled")
     raise PermissionDenied
 
@@ -738,7 +772,7 @@ def Index(request):
         eventPKs = {event.pk for event in eventsSharedSet}
         taskPKs = {task.pk for task in tasksSharedSet}
         eventsShared = CalAppModels.Event.objects.filter(pk__in=eventPKs, exception=False, scheduled=True).exclude(parent__isnull=True)
-        tasksShared = CalAppModels.Task.objects.filter(pk__in=eventPKs, exception=False, scheduled=True).exclude(parent__isnull=True)
+        tasksShared = CalAppModels.Task.objects.filter(pk__in=taskPKs, exception=False, scheduled=True).exclude(parent__isnull=True)
         calendars_shared_with_me = CalAppModels.Cal_Share.objects.filter(sharee=request.user, status="viewed")
         users_sharing_calendars_with_me = {calendar.sharer for calendar in calendars_shared_with_me}
         events_in_calendars_shared_with_me = set()
