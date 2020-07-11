@@ -4,6 +4,7 @@ from math import log2
 from copy import deepcopy
 import datetime
 
+
 class CalendarItem:
     def __init__(self, info, user):
         self.info = info
@@ -57,7 +58,6 @@ class Event(CalendarItem):
                 self.info["repetition_type"] = temp
             event_obj.save()
 
-
             if not event_obj.parent:
                 self._repeat(event_obj)
         else:
@@ -76,8 +76,6 @@ class Event(CalendarItem):
 
             self._repeat(event_obj)
 
-
-
     def _repeat(self, parent_obj):
         children = CalAppModels.Event.objects.filter(parent=parent_obj)
         exceptions = children.filter(exception=True)
@@ -85,16 +83,16 @@ class Event(CalendarItem):
             if not child.exception:
                 child.delete()
         event_obj = CalAppModels.Event(event_text=self.info["text"],
-                                        begin_datetime=self.info["begin_datetime"],
-                                        end_datetime=self.info["end_datetime"],
-                                        owner=self.owner,
-                                        owner_importance=self.info["owner_importance"],
-                                        repetition_type=self.info["repetition_type"],
-                                        repetition_number=self.info["repetition_number"],
-                                        from_date=self.info["from_date"],
-                                        until_date=self.info["until_date"],
-                                        exception=False,
-                                        parent=parent_obj,
+                                       begin_datetime=self.info["begin_datetime"],
+                                       end_datetime=self.info["end_datetime"],
+                                       owner=self.owner,
+                                       owner_importance=self.info["owner_importance"],
+                                       repetition_type=self.info["repetition_type"],
+                                       repetition_number=self.info["repetition_number"],
+                                       from_date=self.info["from_date"],
+                                       until_date=self.info["until_date"],
+                                       exception=False,
+                                       parent=parent_obj,
                                        scheduled=False)
         isException = False
         for ex in exceptions:
@@ -274,7 +272,6 @@ class Task(CalendarItem):
                 self.info["exception_child"] = None
                 self.info["repetition_type"] = temp
             task_obj.save()
-
 
             if not task_obj.parent:
                 self._repeat(task_obj)

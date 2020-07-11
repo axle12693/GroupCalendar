@@ -133,6 +133,7 @@
         <button type="button" id="add-event-modal-open-button" class="btn btn-primary">Add Event</button>
         <button type="button" id="add-task-modal-open-button" class="btn btn-primary">Add Task</button>
         <button type="button" id="contacts-modal-open-button" class="btn btn-primary">Contacts</button>
+        <button type="button" id="unscheduled-modal-open-button" class="btn btn-primary">Unscheduled Items</button>
     {% endif %}
     <div class="container">
         <div ID="calendar"></div>
@@ -144,6 +145,29 @@
 
     <div class="modal fade" id="repetition-modal" tabindex="-1" role="dialog" aria-labelledby="repetitionModalLabel" aria-hidden="true">
     </div>
+
+    <div class="modal fade" id="unscheduled-modal" tabindex="-1" role="dialog" aria-labelledby="unscheduledModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="unscheduledModalLabel">Unscheduled Items</h5>
+
+                    <button type="button" class="close" aria-label="Close" onclick="$('#unscheduled-modal').modal('hide')">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    {% for event in unscheduled_events %}
+                        <div>{{event.event_text}} - from {{event.begin_datetime}} until {{event.end_datetime}}</div>
+                    {% endfor %}
+                    {% for task in unscheduled_tasks %}
+                        <div>{{task.task_text}} - due {{task.due_date}}</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
 
         function repeatButtonHandler() {
@@ -288,7 +312,9 @@
             });
         });
 
-
+        $("#unscheduled-modal-open-button").click(function() {
+            $("#unscheduled-modal").modal("show");
+        });
 
         function addContactButtonHandler() {
             $.ajax({

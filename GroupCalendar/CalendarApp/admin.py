@@ -25,6 +25,7 @@ class ContactAdmin(admin.ModelAdmin):
 class Cal_ShareAdmin(admin.ModelAdmin):
     pass
 
+
 admin.site.register(Event, EventAdmin)
 admin.site.register(Task, TaskAdmin)
 admin.site.register(User_Event, User_EventAdmin)

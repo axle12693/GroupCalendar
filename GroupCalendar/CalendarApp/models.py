@@ -63,11 +63,19 @@ class Contact(models.Model):
     user2 = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
     state = models.CharField(max_length=20)
 
+
 class Cal_Share(models.Model):
     sharer = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
     sharee = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
     status = models.CharField(max_length=20)
 
+
 class User_To_Schedule(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     num_seconds_allowed = models.IntegerField()
+
+
+class User_Schedule_Lock(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    block_all = models.IntegerField(default=0)
+    num_waiting = models.IntegerField(default=0)
