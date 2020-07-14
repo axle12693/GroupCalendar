@@ -70,9 +70,10 @@ class Cal_Share(models.Model):
     status = models.CharField(max_length=20)
 
 
-class User_To_Schedule(models.Model):
+class User_Schedule_Info(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    num_seconds_allowed = models.IntegerField()
+    last_fast_schedule = models.DateTimeField(default=get_aware_now)
+    last_slow_schedule = models.DateTimeField(default=get_aware_now)
 
 
 class User_Schedule_Lock(models.Model):

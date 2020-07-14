@@ -1,9 +1,8 @@
 from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
-from .CalendarItem import Event, Task
 from tempus_dominus.widgets import DateTimePicker, DatePicker
-from . import models as CalAppModels
+from . import models as cal_app_models
 
 
 class UserRegisterForm(UserCreationForm):
@@ -21,11 +20,11 @@ class UserRegisterForm(UserCreationForm):
 class AddEventForm(forms.Form):
     def __init__(self, user: User, *args, **kwargs):
         super(AddEventForm, self).__init__(*args, **kwargs)
-        contactObjects1 = CalAppModels.Contact.objects.filter(user1=user, state="accepted")
-        contactObjects2 = CalAppModels.Contact.objects.filter(user2=user, state="accepted")
-        contactSet = {c.user2 for c in contactObjects1}.union({c.user1 for c in contactObjects2})
-        contactPKs = {con.pk for con in contactSet}
-        contacts = User.objects.filter(pk__in=contactPKs)
+        contact_objects1 = cal_app_models.Contact.objects.filter(user1=user, state="accepted")
+        contact_objects2 = cal_app_models.Contact.objects.filter(user2=user, state="accepted")
+        contact_set = {c.user2 for c in contact_objects1}.union({c.user1 for c in contact_objects2})
+        contact_pks = {con.pk for con in contact_set}
+        contacts = User.objects.filter(pk__in=contact_pks)
         self.fields["shares"].queryset = contacts
 
     def clean(self):
@@ -56,11 +55,11 @@ class AddEventForm(forms.Form):
 class EditEventForm(forms.Form):
     def __init__(self, user: User, *args, **kwargs):
         super(EditEventForm, self).__init__(*args, **kwargs)
-        contactObjects1 = CalAppModels.Contact.objects.filter(user1=user, state="accepted")
-        contactObjects2 = CalAppModels.Contact.objects.filter(user2=user, state="accepted")
-        contactSet = {c.user2 for c in contactObjects1}.union({c.user1 for c in contactObjects2})
-        contactPKs = {con.pk for con in contactSet}
-        contacts = User.objects.filter(pk__in=contactPKs)
+        contact_objects1 = cal_app_models.Contact.objects.filter(user1=user, state="accepted")
+        contact_objects2 = cal_app_models.Contact.objects.filter(user2=user, state="accepted")
+        contact_set = {c.user2 for c in contact_objects1}.union({c.user1 for c in contact_objects2})
+        contact_pks = {con.pk for con in contact_set}
+        contacts = User.objects.filter(pk__in=contact_pks)
         self.fields["shares"].queryset = contacts
 
     text = forms.CharField(max_length=256)
@@ -91,8 +90,8 @@ class EditSharedEventForm(forms.Form):
 class AddTaskForm(forms.Form):
     def __init__(self, user: User, *args, **kwargs):
         super(AddTaskForm, self).__init__(*args, **kwargs)
-        contactObjects1 = CalAppModels.Contact.objects.filter(user1=user, state="accepted")
-        contactObjects2 = CalAppModels.Contact.objects.filter(user2=user, state="accepted")
+        contactObjects1 = cal_app_models.Contact.objects.filter(user1=user, state="accepted")
+        contactObjects2 = cal_app_models.Contact.objects.filter(user2=user, state="accepted")
         contactSet = {c.user2 for c in contactObjects1}.union({c.user1 for c in contactObjects2})
         contactPKs = {con.pk for con in contactSet}
         contacts = User.objects.filter(pk__in=contactPKs)
@@ -125,8 +124,8 @@ class AddContactForm(forms.Form):
 class EditTaskForm(forms.Form):
     def __init__(self, user: User, *args, **kwargs):
         super(EditTaskForm, self).__init__(*args, **kwargs)
-        contactObjects1 = CalAppModels.Contact.objects.filter(user1=user, state="accepted")
-        contactObjects2 = CalAppModels.Contact.objects.filter(user2=user, state="accepted")
+        contactObjects1 = cal_app_models.Contact.objects.filter(user1=user, state="accepted")
+        contactObjects2 = cal_app_models.Contact.objects.filter(user2=user, state="accepted")
         contactSet = {c.user2 for c in contactObjects1}.union({c.user1 for c in contactObjects2})
         contactPKs = {con.pk for con in contactSet}
         contacts = User.objects.filter(pk__in=contactPKs)
