@@ -116,7 +116,7 @@ class Event(CalendarItem):
         while event_in_past.begin_datetime.date() >= event_in_past.from_date:
             if parent_obj.repetition_type == "weekly":
                 dow = event_in_past.begin_datetime.isoweekday() % 7 + 1
-                if dow in days_list:
+                if dow in days_list and event_in_past.begin_datetime.date() <= event_in_past.until_date:
                     new_event = cal_app_models.Event(event_text=event_in_past.event_text,
                                                     begin_datetime=event_in_past.begin_datetime,
                                                     end_datetime=event_in_past.end_datetime,
@@ -139,25 +139,26 @@ class Event(CalendarItem):
                 event_in_past.begin_datetime -= datetime.timedelta(1)
                 event_in_past.end_datetime -= datetime.timedelta(1)
             elif parent_obj.repetition_type == "numdays":
-                new_event = cal_app_models.Event(event_text=event_in_past.event_text,
-                                                begin_datetime=event_in_past.begin_datetime,
-                                                end_datetime=event_in_past.end_datetime,
-                                                owner=self.owner,
-                                                owner_importance=event_in_past.owner_importance,
-                                                repetition_type=event_in_past.repetition_type,
-                                                repetition_number=event_in_past.repetition_number,
-                                                from_date=event_in_past.from_date,
-                                                until_date=event_in_past.until_date,
-                                                exception=False,
-                                                parent=parent_obj,
-                                                scheduled=False)
-                is_exception = False
-                for ex in exceptions:
-                    if new_event.begin_datetime == ex.begin_datetime:
-                        is_exception = True
-                if not is_exception:
-                    new_event.save()
-                    self.create_shares(new_event)
+                if event_in_past.begin_datetime.date() <= event_in_past.until_date:
+                    new_event = cal_app_models.Event(event_text=event_in_past.event_text,
+                                                    begin_datetime=event_in_past.begin_datetime,
+                                                    end_datetime=event_in_past.end_datetime,
+                                                    owner=self.owner,
+                                                    owner_importance=event_in_past.owner_importance,
+                                                    repetition_type=event_in_past.repetition_type,
+                                                    repetition_number=event_in_past.repetition_number,
+                                                    from_date=event_in_past.from_date,
+                                                    until_date=event_in_past.until_date,
+                                                    exception=False,
+                                                    parent=parent_obj,
+                                                    scheduled=False)
+                    is_exception = False
+                    for ex in exceptions:
+                        if new_event.begin_datetime == ex.begin_datetime:
+                            is_exception = True
+                    if not is_exception:
+                        new_event.save()
+                        self.create_shares(new_event)
                 event_in_past.begin_datetime -= datetime.timedelta(parent_obj.repetition_number)
                 event_in_past.end_datetime -= datetime.timedelta(parent_obj.repetition_number)
 
@@ -176,7 +177,7 @@ class Event(CalendarItem):
                 print(event_in_future.begin_datetime.date())
                 print(days_list)
                 print(dow)
-                if dow in days_list:
+                if dow in days_list and event_in_future.begin_datetime.date() >= event_in_future.from_date:
                     new_event = cal_app_models.Event(event_text=event_in_future.event_text,
                                                     begin_datetime=event_in_future.begin_datetime,
                                                     end_datetime=event_in_future.end_datetime,
@@ -199,25 +200,27 @@ class Event(CalendarItem):
                 event_in_future.begin_datetime += datetime.timedelta(1)
                 event_in_future.end_datetime += datetime.timedelta(1)
             elif parent_obj.repetition_type == "numdays":
-                new_event = cal_app_models.Event(event_text=event_in_future.event_text,
-                                                begin_datetime=event_in_future.begin_datetime,
-                                                end_datetime=event_in_future.end_datetime,
-                                                owner=self.owner,
-                                                owner_importance=event_in_future.owner_importance,
-                                                repetition_type=event_in_future.repetition_type,
-                                                repetition_number=event_in_future.repetition_number,
-                                                from_date=event_in_future.from_date,
-                                                until_date=event_in_future.until_date,
-                                                exception=False,
-                                                parent=parent_obj,
-                                                scheduled=False)
-                is_exception = False
-                for ex in exceptions:
-                    if new_event.begin_datetime == ex.begin_datetime:
-                        is_exception = True
-                if not is_exception:
-                    new_event.save()
-                    self.create_shares(new_event)
+
+                if event_in_future.begin_datetime.date() >= event_in_future.from_date:
+                    new_event = cal_app_models.Event(event_text=event_in_future.event_text,
+                                                    begin_datetime=event_in_future.begin_datetime,
+                                                    end_datetime=event_in_future.end_datetime,
+                                                    owner=self.owner,
+                                                    owner_importance=event_in_future.owner_importance,
+                                                    repetition_type=event_in_future.repetition_type,
+                                                    repetition_number=event_in_future.repetition_number,
+                                                    from_date=event_in_future.from_date,
+                                                    until_date=event_in_future.until_date,
+                                                    exception=False,
+                                                    parent=parent_obj,
+                                                    scheduled=False)
+                    is_exception = False
+                    for ex in exceptions:
+                        if new_event.begin_datetime == ex.begin_datetime:
+                            is_exception = True
+                    if not is_exception:
+                        new_event.save()
+                        self.create_shares(new_event)
                 event_in_future.begin_datetime += datetime.timedelta(parent_obj.repetition_number)
                 event_in_future.end_datetime += datetime.timedelta(parent_obj.repetition_number)
 
@@ -333,7 +336,7 @@ class Task(CalendarItem):
         while task_in_past.available_date.date() >= task_in_past.from_date:
             if parent_obj.repetition_type == "weekly":
                 dow = task_in_past.available_date.isoweekday() % 7 + 1
-                if dow in days_list:
+                if dow in days_list and task_in_past.available_date.date() <= task_in_past.until_date:
                     new_task = cal_app_models.Task(task_text=task_in_past.task_text,
                                                   owner=self.owner,
                                                   owner_importance=task_in_past.owner_importance,
@@ -357,26 +360,27 @@ class Task(CalendarItem):
                 task_in_past.available_date -= datetime.timedelta(1)
                 task_in_past.due_date -= datetime.timedelta(1)
             elif parent_obj.repetition_type == "numdays":
-                new_task = cal_app_models.Task(task_text=task_in_past.task_text,
-                                              owner=self.owner,
-                                              owner_importance=task_in_past.owner_importance,
-                                              repetition_type=task_in_past.repetition_type,
-                                              repetition_number=task_in_past.repetition_number,
-                                              from_date=task_in_past.from_date,
-                                              until_date=task_in_past.until_date,
-                                              exception=False,
-                                              parent=parent_obj,
-                                              scheduled=False,
-                                              due_date=task_in_past.due_date,
-                                              available_date=task_in_past.available_date,
-                                              expected_minutes=task_in_past.expected_minutes)
-                is_exception = False
-                for ex in exceptions:
-                    if new_task.available_date == ex.available_date:
-                        is_exception = True
-                if not is_exception:
-                    new_task.save()
-                    self.create_shares(new_task)
+                if task_in_past.available_date.date() <= task_in_past.until_date:
+                    new_task = cal_app_models.Task(task_text=task_in_past.task_text,
+                                                  owner=self.owner,
+                                                  owner_importance=task_in_past.owner_importance,
+                                                  repetition_type=task_in_past.repetition_type,
+                                                  repetition_number=task_in_past.repetition_number,
+                                                  from_date=task_in_past.from_date,
+                                                  until_date=task_in_past.until_date,
+                                                  exception=False,
+                                                  parent=parent_obj,
+                                                  scheduled=False,
+                                                  due_date=task_in_past.due_date,
+                                                  available_date=task_in_past.available_date,
+                                                  expected_minutes=task_in_past.expected_minutes)
+                    is_exception = False
+                    for ex in exceptions:
+                        if new_task.available_date == ex.available_date:
+                            is_exception = True
+                    if not is_exception:
+                        new_task.save()
+                        self.create_shares(new_task)
                 task_in_past.available_date -= datetime.timedelta(parent_obj.repetition_number)
                 task_in_past.due_date -= datetime.timedelta(parent_obj.repetition_number)
 
@@ -391,7 +395,7 @@ class Task(CalendarItem):
         while task_in_future.available_date.date() <= task_in_future.until_date:
             if parent_obj.repetition_type == "weekly":
                 dow = task_in_future.available_date.isoweekday() % 7 + 1
-                if dow in days_list:
+                if dow in days_list and task_in_future.available_date.date() >= task_in_future.from_date:
                     new_task = cal_app_models.Task(task_text=task_in_future.task_text,
                                                   owner=self.owner,
                                                   owner_importance=task_in_future.owner_importance,
@@ -415,25 +419,26 @@ class Task(CalendarItem):
                 task_in_future.available_date += datetime.timedelta(1)
                 task_in_future.due_date += datetime.timedelta(1)
             elif parent_obj.repetition_type == "numdays":
-                new_task = cal_app_models.Task(task_text=task_in_future.task_text,
-                                              owner=self.owner,
-                                              owner_importance=task_in_future.owner_importance,
-                                              repetition_type=task_in_future.repetition_type,
-                                              repetition_number=task_in_future.repetition_number,
-                                              from_date=task_in_future.from_date,
-                                              until_date=task_in_future.until_date,
-                                              exception=False,
-                                              parent=parent_obj,
-                                              scheduled=False,
-                                              due_date=task_in_future.due_date,
-                                              available_date=task_in_future.available_date,
-                                              expected_minutes=task_in_future.expected_minutes)
-                is_exception = False
-                for ex in exceptions:
-                    if new_task.available_date == ex.available_date:
-                        is_exception = True
-                if not is_exception:
-                    new_task.save()
-                    self.create_shares(new_task)
+                if task_in_future.available_date.date() >= task_in_future.from_date:
+                    new_task = cal_app_models.Task(task_text=task_in_future.task_text,
+                                                  owner=self.owner,
+                                                  owner_importance=task_in_future.owner_importance,
+                                                  repetition_type=task_in_future.repetition_type,
+                                                  repetition_number=task_in_future.repetition_number,
+                                                  from_date=task_in_future.from_date,
+                                                  until_date=task_in_future.until_date,
+                                                  exception=False,
+                                                  parent=parent_obj,
+                                                  scheduled=False,
+                                                  due_date=task_in_future.due_date,
+                                                  available_date=task_in_future.available_date,
+                                                  expected_minutes=task_in_future.expected_minutes)
+                    is_exception = False
+                    for ex in exceptions:
+                        if new_task.available_date == ex.available_date:
+                            is_exception = True
+                    if not is_exception:
+                        new_task.save()
+                        self.create_shares(new_task)
                 task_in_future.available_date += datetime.timedelta(parent_obj.repetition_number)
                 task_in_future.due_date += datetime.timedelta(parent_obj.repetition_number)

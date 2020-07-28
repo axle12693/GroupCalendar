@@ -18,6 +18,7 @@
     {% load static %}
     {% load crispy_forms_tags %}
     {% load tz %}
+    <link rel="stylesheet" href="{% static 'style.css' %}">
     <link href="{% static 'FullCalendar/packages/core/main.css' %}" rel='stylesheet' />
     <link href="{% static 'FullCalendar/packages/daygrid/main.css' %}" rel='stylesheet' />
     <link href="{% static 'FullCalendar/packages/timegrid/main.css' %}" rel='stylesheet' />
@@ -109,6 +110,10 @@
     </script>
 </head>
 <body>
+    <div class="loading" id="loadingScreen">
+        Some things need to be rescheduled... <br>
+        This may take up to 30 seconds
+    </div>
     <div class="jumbotron">
 
         <div class="container">
@@ -130,13 +135,18 @@
             <h1>My Calendar App</h1>
         </div>
     </div>
-    {% if user.is_authenticated %}
-        <button type="button" id="add-event-modal-open-button" class="btn btn-primary">Add Event</button>
-        <button type="button" id="add-task-modal-open-button" class="btn btn-primary">Add Task</button>
-        <button type="button" id="contacts-modal-open-button" class="btn btn-primary">Contacts</button>
-        <button type="button" id="unscheduled-modal-open-button" class="btn btn-primary">Unscheduled Items</button>
-    {% endif %}
+
     <div class="container">
+        <div class="d-flex justify-content-between">
+            {% if user.is_authenticated %}
+                <button type="button" id="add-event-modal-open-button" class="btn btn-primary">Add Event</button>
+                <button type="button" id="add-task-modal-open-button" class="btn btn-primary">Add Task</button>
+                <button type="button" id="contacts-modal-open-button" class="btn btn-primary">Contacts</button>
+                <button type="button" id="unscheduled-modal-open-button" class="btn btn-primary">Unscheduled Items</button>
+            {% endif %}
+        </div>
+        <br>
+
         <div ID="calendar"></div>
     </div>
 
@@ -170,6 +180,16 @@
     </div>
 
     <script>
+
+        {% if needs_scheduling %}
+            $(".modal").modal("hide");
+            $("#loadingScreen").addClass("shown");
+            jQuery.get("{% url 'schedule' %}", function(data) {
+                location.reload();
+            });
+        {% endif %}
+
+
 
         function repeatButtonHandler() {
             weekly = $("#id_repetition_type_2");
@@ -379,6 +399,8 @@
 
         function editEventButtonHandler()
         {
+            $("#bd-example-modal-lg").modal("hide");
+            $("#loadingScreen").addClass("shown");
             $.ajax({
                 method: 'post',
                 processData: false,
@@ -389,6 +411,8 @@
                 url: '{% url 'event' %}',
                 statusCode:{
                     200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").modal("show");
+                        $("#loadingScreen").removeClass("shown");
                         $("#bd-example-modal-lg").html(response);
                         $("#editEventButton").click(editEventButtonHandler);
                         $("#deleteEventButton").click(deleteEventButtonHandler);
@@ -404,6 +428,8 @@
 
         function deleteEventButtonHandler()
         {
+            $("#bd-example-modal-lg").modal("hide");
+            $("#loadingScreen").addClass("shown");
             $("#reqtype").val("delete");
             $.ajax({
                 method: 'post',
@@ -415,6 +441,8 @@
                 url: '{% url 'event' %}',
                 statusCode:{
                     200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").modal("show");
+                        $("#loadingScreen").removeClass("shown");
                         $("#bd-example-modal-lg").html(response);
                         $("#editEventButton").click(editEventButtonHandler);
                         $("#deleteEventButton").click(deleteEventButtonHandler);
@@ -430,6 +458,8 @@
 
         function editMultiEventButtonHandler()
         {
+            $("#bd-example-modal-lg").modal("hide");
+            $("#loadingScreen").addClass("shown");
             $("#id_all").val("true");
             $.ajax({
                 method: 'post',
@@ -441,6 +471,8 @@
                 url: '{% url 'event' %}',
                 statusCode:{
                     200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").modal("show");
+                        $("#loadingScreen").removeClass("shown");
                         $("#bd-example-modal-lg").html(response);
                         $("#editEventButton").click(editEventButtonHandler);
                         $("#deleteEventButton").click(deleteEventButtonHandler);
@@ -456,6 +488,8 @@
 
         function deleteMultiEventButtonHandler()
         {
+            $("#bd-example-modal-lg").modal("hide");
+            $("#loadingScreen").addClass("shown");
             $("#id_all").val("true");
             $("#reqtype").val("delete");
             $.ajax({
@@ -468,6 +502,8 @@
                 url: '{% url 'event' %}',
                 statusCode:{
                     200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").modal("show");
+                        $("#loadingScreen").removeClass("shown");
                         $("#bd-example-modal-lg").html(response);
                         $("#editEventButton").click(editEventButtonHandler);
                         $("#deleteEventButton").click(deleteEventButtonHandler);
@@ -483,6 +519,8 @@
 
         function editTaskButtonHandler()
         {
+            $("#bd-example-modal-lg").modal("hide");
+            $("#loadingScreen").addClass("shown");
             $.ajax({
                 method: 'post',
                 processData: false,
@@ -493,6 +531,8 @@
                 url: '{% url 'task' %}',
                 statusCode:{
                     200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").modal("show");
+                        $("#loadingScreen").removeClass("shown");
                         $("#bd-example-modal-lg").html(response);
                         $("#editTaskButton").click(editTaskButtonHandler);
                         $("#deleteTaskButton").click(deleteTaskButtonHandler);
@@ -508,6 +548,8 @@
 
         function deleteTaskButtonHandler()
         {
+            $("#bd-example-modal-lg").modal("hide");
+            $("#loadingScreen").addClass("shown");
             $("#reqtype").val("delete");
             $.ajax({
                 method: 'post',
@@ -519,6 +561,8 @@
                 url: '{% url 'task' %}',
                 statusCode:{
                     200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").modal("show");
+                        $("#loadingScreen").removeClass("shown");
                         $("#bd-example-modal-lg").html(response);
                         $("#editTaskButton").click(editTaskButtonHandler);
                         $("#deleteTaskButton").click(deleteTaskButtonHandler);
@@ -534,6 +578,8 @@
 
         function editMultiTaskButtonHandler()
         {
+            $("#bd-example-modal-lg").modal("hide");
+            $("#loadingScreen").addClass("shown");
             $("#id_all").val("true");
             $.ajax({
                 method: 'post',
@@ -545,6 +591,8 @@
                 url: '{% url 'task' %}',
                 statusCode:{
                     200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").modal("show");
+                        $("#loadingScreen").removeClass("shown");
                         $("#bd-example-modal-lg").html(response);
                         $("#editTaskButton").click(editTaskButtonHandler);
                         $("#deleteTaskButton").click(deleteTaskButtonHandler);
@@ -560,6 +608,8 @@
 
         function deleteMultiTaskButtonHandler()
         {
+            $("#bd-example-modal-lg").modal("hide");
+            $("#loadingScreen").addClass("shown");
             $("#id_all").val("true");
             $("#reqtype").val("delete");
             $.ajax({
@@ -572,6 +622,8 @@
                 url: '{% url 'task' %}',
                 statusCode:{
                     200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").modal("show");
+                        $("#loadingScreen").removeClass("shown");
                         $("#bd-example-modal-lg").html(response);
                         $("#editTaskButton").click(editTaskButtonHandler);
                         $("#deleteTaskButton").click(deleteTaskButtonHandler);
@@ -612,6 +664,8 @@
 
         function addEventButtonHandler()
         {
+            $("#bd-example-modal-lg").modal("hide");
+            $("#loadingScreen").addClass("shown");
             $.ajax({
                 method: 'post',
                 processData: false,
@@ -622,6 +676,8 @@
                 url: '{% url 'event' %}',
                 statusCode:{
                     200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").modal("show");
+                        $("#loadingScreen").removeClass("shown");
                         $("#bd-example-modal-lg").html(response);
                         $("#addEventButton").click(addEventButtonHandler);
                     },
@@ -634,6 +690,8 @@
 
         function addTaskButtonHandler()
         {
+            $("#bd-example-modal-lg").modal("hide");
+            $("#loadingScreen").addClass("shown");
             $.ajax({
                 method: 'post',
                 processData: false,
@@ -644,6 +702,8 @@
                 url: '{% url 'task' %}',
                 statusCode:{
                     200: function(response, txtStatus, request) {
+                        $("#bd-example-modal-lg").modal("show");
+                        $("#loadingScreen").removeClass("shown");
                         $("#bd-example-modal-lg").html(response);
                         $("#addTaskButton").click(addTaskButtonHandler);
                     },

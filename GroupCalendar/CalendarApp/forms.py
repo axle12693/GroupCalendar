@@ -26,6 +26,7 @@ class AddEventForm(forms.Form):
         contact_pks = {con.pk for con in contact_set}
         contacts = User.objects.filter(pk__in=contact_pks)
         self.fields["shares"].queryset = contacts
+        self.fields["owner_importance"].help_text += "<br>1 is lowest, 10 is highest"
 
     def clean(self):
         cd = super(AddEventForm, self).clean()
@@ -61,6 +62,7 @@ class EditEventForm(forms.Form):
         contact_pks = {con.pk for con in contact_set}
         contacts = User.objects.filter(pk__in=contact_pks)
         self.fields["shares"].queryset = contacts
+        self.fields["owner_importance"].help_text += "<br>1 is lowest, 10 is highest"
 
     text = forms.CharField(max_length=256)
     begin_datetime = forms.DateTimeField(widget=DateTimePicker(attrs={'autocomplete': 'off'}))
@@ -83,8 +85,12 @@ class EditEventForm(forms.Form):
 
 
 class EditSharedEventForm(forms.Form):
+    def __init__(self, user: User, *args, **kwargs):
+        super(EditSharedEventForm, self).__init__(*args, **kwargs)
+        self.fields["importance"].help_text += "<br>1 is lowest, 10 is highest"
     importance = forms.IntegerField(max_value=10, min_value=1)
     pk = forms.IntegerField(widget=forms.HiddenInput)
+
 
 
 class AddTaskForm(forms.Form):
@@ -96,6 +102,7 @@ class AddTaskForm(forms.Form):
         contactPKs = {con.pk for con in contactSet}
         contacts = User.objects.filter(pk__in=contactPKs)
         self.fields["shares"].queryset = contacts
+        self.fields["owner_importance"].help_text += "<br>1 is lowest, 10 is highest"
 
     text = forms.CharField(max_length=256)
     due_datetime = forms.DateTimeField(widget=DateTimePicker(attrs={'autocomplete': 'off'}))
@@ -130,6 +137,7 @@ class EditTaskForm(forms.Form):
         contactPKs = {con.pk for con in contactSet}
         contacts = User.objects.filter(pk__in=contactPKs)
         self.fields["shares"].queryset = contacts
+        self.fields["owner_importance"].help_text += "<br>1 is lowest, 10 is highest"
 
     text = forms.CharField(max_length=256)
     due_datetime = forms.DateTimeField(widget=DateTimePicker(attrs={'autocomplete': 'off'}))
@@ -153,6 +161,9 @@ class EditTaskForm(forms.Form):
 
 
 class EditSharedTaskForm(forms.Form):
+    def __init__(self, user: User, *args, **kwargs):
+        super(EditSharedTaskForm, self).__init__(*args, **kwargs)
+        self.fields["importance"].help_text += "<br>1 is lowest, 10 is highest"
     importance = forms.IntegerField(max_value=10, min_value=1)
     pk = forms.IntegerField(widget=forms.HiddenInput)
 
