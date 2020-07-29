@@ -838,8 +838,8 @@ def _schedule_user_slow(user):
         except ObjectDoesNotExist:
             schedule_info = CalAppModels.User_Schedule_Info(user=r_user, last_fast_schedule=now, last_slow_schedule=now)
             schedule_info.save()
-        if r_user in _user_queue:
-            _user_queue.remove(user)
+        while r_user in _user_queue:
+            _user_queue.remove(r_user)
     return True
 
 print_level = 0
