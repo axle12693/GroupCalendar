@@ -920,7 +920,7 @@ def _schedule_user_quick_2(user):
             logger.info("    " * print_level + "Attempting to add " + item_to_schedule_obj.event_text)
             success, removed_items = _add_event_to_schedule(item_to_schedule, scheduled, tick, fast_allowed_time)
         if removed_items:
-            tick += len(removed_items)
+            tick += len(removed_items) * 0.1
             logger.info("    " * print_level + "Removed " + str(removed_items) + " during the attempt")
             for item in removed_items:
                 unscheduled.append(item)
